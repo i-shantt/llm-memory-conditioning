@@ -1,0 +1,3 @@
+# lastmile itself has no dependencies beyond memllm's.
+# memllm must be on the path -- see lastmile/_deps.py.
+pytest
