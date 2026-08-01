@@ -13,10 +13,13 @@ exists is skipped, so a re-push after a timeout continues rather than restarts.
 ## Cell 0 — run configuration
 
 ```python
-# Ordered smallest-first on purpose. If the session dies partway, a complete
-# 1.5B sweep is worth far more than two half-finished ones: the whole claim is
-# a within-model paired comparison, so an orphaned arm proves nothing.
-SIZES = ["1.5b", "7b"]
+# Full ollama model tags, not just Qwen sizes -- the transfer question is
+# whether conditioning helps small models generally or only this family.
+#
+# Ordered so that if the session dies partway, whole models are finished rather
+# than several left half-done: the claim is a within-model paired comparison,
+# so an arm with no matching baseline proves nothing.
+MODELS = ["qwen2.5:1.5b-instruct", "qwen2.5:7b-instruct"]
 N = "100"           # stratified subset size
 CTX = "8192"        # ollama context window
 MAXNEW = "256"      # NOT memllm's 64 -- see Cell 4a
@@ -52,12 +55,18 @@ for i in range(90):
 else:
     raise RuntimeError("ollama did not start -- is Internet enabled in the sidebar?")
 
-LADDER = [f"qwen2.5:{s}-instruct" for s in SIZES]
-for m in LADDER:
+for m in MODELS:
     print(f"pulling {m} ...", flush=True)
     subprocess.run(["ollama", "pull", m], check=True)
 
-subprocess.run(["ollama", "run", LADDER[-1], "hi"],
+# A tag that does not exist fails the pull, but a typo in a *family* name can
+# also silently resolve to something else, so confirm what actually landed.
+have = subprocess.run(["ollama", "list"], capture_output=True, text=True).stdout
+for m in MODELS:
+    assert m.split(":")[0] in have, f"{m} not present after pull:\n{have}"
+print(have)
+
+subprocess.run(["ollama", "run", MODELS[-1], "hi"],
                capture_output=True, text=True, timeout=600)
 print(subprocess.run(["ollama", "ps"], capture_output=True, text=True).stdout)
 ```
@@ -142,8 +151,12 @@ import subprocess, os, time, json
 #
 # The comparison is unaffected: every arm is paired against an `identity` arm
 # using the SAME retriever, so the retriever is held constant by construction.
-def arm(size, conditioner, k="10", retriever="bm25"):
-    tag = f"cond_{size}_{conditioner.replace(':', '-')}_k{k}_n{N}"
+def arm(model, conditioner, k="10", retriever="bm25"):
+    # ':' and '/' are not safe in a filename; the full spec is preserved inside
+    # the payload's config.answer_backend, which is what the comparison groups
+    # on, so nothing depends on the tag being parseable back into a model name.
+    short = model.replace(":", "-").replace("/", "-")
+    tag = f"cond_{short}_{conditioner.replace(':', '-')}_k{k}_n{N}"
     out = f"/kaggle/working/llm-memory-conditioning/results/{tag}.json"
     if os.path.exists(out):
         print(f"skip {tag} (already done)"); return
@@ -152,7 +165,7 @@ def arm(size, conditioner, k="10", retriever="bm25"):
         ["python", "scripts/run_conditioned_eval.py",
          "--data", "/kaggle/working/memllm/data/raw/longmemeval_s",
          "--limit", N, "--retriever", retriever, "--conditioner", conditioner,
-         "--k", k, "--answer-backend", f"ollama:qwen2.5:{size}-instruct",
+         "--k", k, "--answer-backend", f"ollama:{model}",
          "--num-ctx", CTX, "--max-new-tokens", MAXNEW, "--tag", tag],
         capture_output=True, text=True)
     print(r.stdout[-1200:], r.stderr[-800:])
@@ -163,13 +176,18 @@ def arm(size, conditioner, k="10", retriever="bm25"):
 ## Cell 4 — conditioner arms (~2–2.5 h, resumable)
 
 ```python
-# identity FIRST for each size. It is the baseline every other arm is paired
-# against, so a size with only conditioned arms and no baseline is unusable.
-ARMS = ["identity", "supersede:mark", "temporal", "all"]
+# identity FIRST for each model. It is the baseline every other arm is paired
+# against, so a model with only conditioned arms and no baseline is unusable.
+#
+# supersede:mark is not run standalone here. It has already been measured
+# negative at three Qwen sizes, and `all` composes it with temporal -- so if it
+# contributes anything on a new family, `all` will exceed `temporal` and say so
+# without spending a separate arm on it.
+ARMS = ["identity", "temporal", "all"]
 
-for size in SIZES:
+for m in MODELS:
     for c in ARMS:
-        arm(size, c)
+        arm(m, c)
 ```
 
 ## Cell 4b — the deletion arm, 7B only (~12 min)
@@ -180,8 +198,8 @@ for size in SIZES:
 # past-directed questions ("Before I purchased the gravel bike, ...") whose
 # answer lives in the superseded turn. This is the measured argument against
 # write-time deletion, which is what Mem0's UPDATE/DELETE do irreversibly.
-if "7b" in SIZES:
-    arm("7b", "supersede:drop")
+if "qwen2.5:7b-instruct" in MODELS:
+    arm("qwen2.5:7b-instruct", "supersede:drop")
 ```
 
 ## Cell 4c — paired comparison (~1 min)
