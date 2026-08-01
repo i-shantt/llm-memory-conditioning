@@ -29,6 +29,11 @@ applied to the k retrieved units after retrieval, before prompt assembly. No LLM
 calls, no model, no training, no write-time work. It is a layer, not a
 competitor — it sits on top of any retriever or memory system.
 
+**Measured: +0.143 accuracy on Qwen2.5-1.5B (p = 0.001), for 6.8% more read
+tokens and zero LLM calls** — enough that a 1.5B model matches a 7B one with no
+conditioning. Nothing is significant at 7B, which is the point: the transforms
+do work the small model cannot do for itself. [Results below.](#results)
+
 ## What is and is not new here
 
 The phenomenon is **not** a discovery. STALE (arXiv 2605.06527) names it the
@@ -75,7 +80,9 @@ two dates" into "read a number".
 
 `scripts/run_mechanical_gate.py` scores a conditioner's *decisions* against
 LongMemEval's own `has_answer` labels — no model, no GPU, no quota. It exists so
-a broken rule is caught before anyone buys GPU time.
+a broken rule is caught before anyone buys GPU time. It caught two real bugs.
+It also certified a conditioner that turned out to do nothing at all, which is
+its limit — see [the annotation nobody read](#the-annotation-nobody-read).
 
 All 500 LongMemEval questions, BM25 at k=10:
 
@@ -132,15 +139,102 @@ two dates — the superseded fact and its replacement — because answering need
 both. Marking the earlier one `OUTDATED` is correct, and the metric was
 penalising it.
 
-## Status
+## Results
 
-The gate passes. **Answer accuracy has not been measured yet** — that needs GPU,
-and no accuracy claim appears anywhere in this repo until it has been run with
-memllm's control arms and paired significance tests.
+Qwen2.5, BM25 at k=10, n=100, `max_new_tokens=256`, deterministic grading.
+Each conditioner is paired against the `identity` arm on the same 91 graded
+question ids — same retriever, same k, same model, same seed, same prompt
+template. Exact McNemar on discordant pairs, paired bootstrap CI.
 
-The experiment is unusually clean when it happens: identical retriever, k, model
-and seed, with the *only* difference being how the same retrieved units are
-rendered. A paired McNemar on that has no confound to argue about.
+**1.5B** (baseline `identity` = 0.2637)
+
+| conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
+|---|---|---|---|---|---|---|
+| `all` | 0.4066 | **+0.1429** | [+0.066, +0.220] | **0.0010** | +6.8% | 0 |
+| `temporal` | 0.3846 | **+0.1209** | [+0.055, +0.198] | **0.0034** | +5.7% | 0 |
+| `supersede:mark` | 0.2637 | +0.0000 | [−0.044, +0.044] | 1.000 | +1.0% | 0 |
+
+**7B** (baseline `identity` = 0.4176)
+
+| conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
+|---|---|---|---|---|---|---|
+| `all` | 0.4725 | +0.0549 | [−0.022, +0.132] | 0.302 | +6.9% | 0 |
+| `temporal` | 0.4396 | +0.0220 | [−0.055, +0.099] | 0.791 | +5.8% | 0 |
+| `supersede:drop` | 0.4066 | −0.0110 | [−0.066, +0.044] | 1.000 | −8.3% | 0 |
+| `supersede:mark` | 0.4066 | −0.0110 | [−0.044, +0.022] | 1.000 | +1.0% | 0 |
+
+### Conditioning substitutes for model capacity
+
+Everything significant happens at 1.5B. Nothing at 7B is distinguishable from
+noise. That is the result, not a disappointment: the transforms do work the
+model cannot do for itself, and a 7B model can already do it.
+
+The comparison that makes the point:
+
+| | accuracy | token-F1 | median answer |
+|---|---|---|---|
+| 1.5B `identity` | 0.2637 | 0.1755 | 14 words |
+| 1.5B `all` | **0.4066** | **0.1821** | 16 words |
+| 7B `identity` | 0.4176 | 0.1759 | 30 words |
+
+**A 1.5B model with free conditioning matches a 7B model without it** — 0.4066
+against 0.4176, a one-question difference at 4.7× fewer parameters.
+
+That comparison is exactly the kind memllm warns about, because containment
+rewards length and 7B answers are twice as long. So check it against token-F1,
+which penalises length instead: scaling 1.5B→7B buys **+0.1538 accuracy but only
++0.0005 token-F1** — the scaling gain is almost entirely verbosity. Conditioning
+at 1.5B buys +0.1429 accuracy *and* **+0.0066 token-F1**, thirteen times the
+scaling gain on the metric that cannot be inflated by talking more. Median answer
+length barely moves (14 → 16 words). The answers are not longer. They are right
+more often.
+
+### The annotation nobody read
+
+`supersede:mark` did **nothing**: +0.0000 at 1.5B, −0.0110 at 7B.
+
+This is the part worth dwelling on, because it is where the CPU gate failed. The
+gate certified this conditioner: on knowledge-update it marked the newest
+evidence unit `LATEST` **96.4%** of the time and mislabelled it 3.6%. The
+annotations were right. The model ignored them.
+
+The gate measured whether the labels were *correct*. It could not measure whether
+they were *used*, and those turned out to be different questions. Any
+mechanical-correctness harness has this blind spot, and no amount of raising the
+precision bar would have caught it.
+
+Worse for the original hypothesis: the knowledge-update gain that supersession
+was designed for was delivered by `temporal` instead — **+0.250 at 1.5B**,
+against `supersede:mark`'s +0.000 on the same slice.
+
+| Δ by question type, 1.5B | `temporal` | `supersede:mark` | `all` |
+|---|---|---|---|
+| knowledge-update | **+0.250** | +0.000 | **+0.250** |
+| temporal-reasoning | +0.120 | +0.000 | +0.200 |
+| multi-session | +0.115 | +0.077 | +0.115 |
+| single-session-assistant | +0.100 | −0.100 | +0.100 |
+| single-session-user | +0.000 | −0.071 | +0.000 |
+
+`temporal` makes no claim about currency at all. It sorts chronologically and
+labels each unit with its age. That is apparently enough: **the model does not
+need to be told which fact is current, it needs the chronology made legible
+enough to work it out.** Being told directly, in a label with 96% precision,
+changed nothing.
+
+### Deletion
+
+`supersede:drop` came out at −0.0110, not significant, for −8.3% read tokens. The
+CPU gate showed it deleting 22% of all evidence on knowledge-update, so a sharp
+loss was the prediction; it merely failed to help. The honest reading is weaker
+than "deletion is harmful": deletion bought nothing, while costing an
+irreversible loss of information that a past-directed question would need.
+
+### Cost
+
+Every number above was produced with **zero LLM calls** and 1–7% more read
+tokens. STALE's CUPMem reaches its numbers with an LLM adjudicator on every
+write, which is O(corpus) calls paid whether or not a query arrives. This is the
+comparison the literature does not report.
 
 ## Layout
 
@@ -165,9 +259,17 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 
 ## Honest limits
 
-- **No accuracy result exists yet.** Everything above measures decisions against
-  evidence labels, not answers. A conditioner can be mechanically correct and
-  still not help a model.
+- **Mechanical correctness does not imply usefulness, and the gate cannot tell
+  the difference.** `supersede:mark` passed at 96.4% precision and moved accuracy
+  by 0.000. Treat every gate number as necessary, never sufficient.
+- **One benchmark, one model family, two sizes, n=100.** Whether the 1.5B result
+  holds for other small models, or at 3B, is untested. The 7B nulls have CIs
+  wide enough (±0.08) to hide a real effect of the size seen at 1.5B.
+- **The cross-model claim is the fragile one.** "1.5B conditioned matches 7B" is
+  a comparison memllm explicitly warns against, because containment rewards
+  length. It survives a token-F1 check, but token-F1 differences here are small
+  in absolute terms (0.1821 vs 0.1759) and the arms were not designed for a
+  cross-model test.
 - **Away from knowledge-update the rule is noisy.** Across all 500 questions
   HARM is 0.209–0.312 — it fires where there is no supersession to find. Whether
   that costs accuracy is exactly what the GPU run is for, and it is the reason
