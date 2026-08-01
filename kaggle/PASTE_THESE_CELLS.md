@@ -23,6 +23,12 @@ MODELS = ["qwen2.5:1.5b-instruct", "qwen2.5:7b-instruct"]
 N = "100"           # stratified subset size
 CTX = "8192"        # ollama context window
 MAXNEW = "256"      # NOT memllm's 64 -- see Cell 4a
+
+# identity FIRST. It is the baseline every other arm is paired against, so a
+# model with only conditioned arms and no baseline is unusable. Lives here
+# rather than in Cell 4 so a partial run can be selected without editing the
+# cell that does the work.
+ARMS = ["identity", "temporal", "all"]
 ```
 
 ## Cell 1 — Ollama and the model ladder (~12 min)
@@ -176,15 +182,7 @@ def arm(model, conditioner, k="10", retriever="bm25"):
 ## Cell 4 — conditioner arms (~2–2.5 h, resumable)
 
 ```python
-# identity FIRST for each model. It is the baseline every other arm is paired
-# against, so a model with only conditioned arms and no baseline is unusable.
-#
-# supersede:mark is not run standalone here. It has already been measured
-# negative at three Qwen sizes, and `all` composes it with temporal -- so if it
-# contributes anything on a new family, `all` will exceed `temporal` and say so
-# without spending a separate arm on it.
-ARMS = ["identity", "temporal", "all"]
-
+# ARMS comes from Cell 0 so a run can be narrowed without editing this cell.
 for m in MODELS:
     for c in ARMS:
         arm(m, c)
