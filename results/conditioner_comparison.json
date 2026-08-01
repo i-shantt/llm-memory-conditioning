@@ -195,6 +195,201 @@
     }
   },
   {
+    "model": "ollama:qwen2.5:3b-instruct",
+    "conditioner": "all",
+    "baseline": "identity",
+    "baseline_accuracy": 0.3076923076923077,
+    "accuracy": 0.3956043956043956,
+    "delta": 0.08791208791208792,
+    "ci_lo": 0.01098901098901099,
+    "ci_hi": 0.16483516483516483,
+    "p_value": 0.057373046875,
+    "significant": false,
+    "significant_regression": false,
+    "contingency": {
+      "n": 91,
+      "both": 25,
+      "system_only": 11,
+      "control_only": 3,
+      "neither": 52
+    },
+    "read_tokens_per_query": 3086.82,
+    "token_delta_pct": 0.06891751506337007,
+    "n_hit_token_cap": 0,
+    "per_type": {
+      "knowledge-update": {
+        "n": 16,
+        "system": 11,
+        "control": 6,
+        "system_acc": 0.6875,
+        "control_acc": 0.375,
+        "lift": 0.3125
+      },
+      "single-session-user": {
+        "n": 14,
+        "system": 9,
+        "control": 6,
+        "system_acc": 0.6428571428571429,
+        "control_acc": 0.42857142857142855,
+        "lift": 0.21428571428571436
+      },
+      "multi-session": {
+        "n": 26,
+        "system": 7,
+        "control": 7,
+        "system_acc": 0.2692307692307692,
+        "control_acc": 0.2692307692307692,
+        "lift": 0.0
+      },
+      "temporal-reasoning": {
+        "n": 25,
+        "system": 3,
+        "control": 3,
+        "system_acc": 0.12,
+        "control_acc": 0.12,
+        "lift": 0.0
+      },
+      "single-session-assistant": {
+        "n": 10,
+        "system": 6,
+        "control": 6,
+        "system_acc": 0.6,
+        "control_acc": 0.6,
+        "lift": 0.0
+      }
+    }
+  },
+  {
+    "model": "ollama:qwen2.5:3b-instruct",
+    "conditioner": "temporal",
+    "baseline": "identity",
+    "baseline_accuracy": 0.3076923076923077,
+    "accuracy": 0.3626373626373626,
+    "delta": 0.054945054945054944,
+    "ci_lo": -0.02197802197802198,
+    "ci_hi": 0.14285714285714285,
+    "p_value": 0.3017578125,
+    "significant": false,
+    "significant_regression": false,
+    "contingency": {
+      "n": 91,
+      "both": 23,
+      "system_only": 10,
+      "control_only": 5,
+      "neither": 53
+    },
+    "read_tokens_per_query": 3055.72,
+    "token_delta_pct": 0.05814807119606602,
+    "n_hit_token_cap": 0,
+    "per_type": {
+      "knowledge-update": {
+        "n": 16,
+        "system": 9,
+        "control": 6,
+        "system_acc": 0.5625,
+        "control_acc": 0.375,
+        "lift": 0.1875
+      },
+      "single-session-user": {
+        "n": 14,
+        "system": 9,
+        "control": 6,
+        "system_acc": 0.6428571428571429,
+        "control_acc": 0.42857142857142855,
+        "lift": 0.21428571428571436
+      },
+      "multi-session": {
+        "n": 26,
+        "system": 6,
+        "control": 7,
+        "system_acc": 0.23076923076923078,
+        "control_acc": 0.2692307692307692,
+        "lift": -0.038461538461538436
+      },
+      "temporal-reasoning": {
+        "n": 25,
+        "system": 3,
+        "control": 3,
+        "system_acc": 0.12,
+        "control_acc": 0.12,
+        "lift": 0.0
+      },
+      "single-session-assistant": {
+        "n": 10,
+        "system": 6,
+        "control": 6,
+        "system_acc": 0.6,
+        "control_acc": 0.6,
+        "lift": 0.0
+      }
+    }
+  },
+  {
+    "model": "ollama:qwen2.5:3b-instruct",
+    "conditioner": "supersede:mark",
+    "baseline": "identity",
+    "baseline_accuracy": 0.3076923076923077,
+    "accuracy": 0.2857142857142857,
+    "delta": -0.02197802197802198,
+    "ci_lo": -0.054945054945054944,
+    "ci_hi": 0.0,
+    "p_value": 0.5,
+    "significant": false,
+    "significant_regression": false,
+    "contingency": {
+      "n": 91,
+      "both": 26,
+      "system_only": 0,
+      "control_only": 2,
+      "neither": 63
+    },
+    "read_tokens_per_query": 2917.65,
+    "token_delta_pct": 0.010336588406399283,
+    "n_hit_token_cap": 0,
+    "per_type": {
+      "knowledge-update": {
+        "n": 16,
+        "system": 5,
+        "control": 6,
+        "system_acc": 0.3125,
+        "control_acc": 0.375,
+        "lift": -0.0625
+      },
+      "single-session-user": {
+        "n": 14,
+        "system": 6,
+        "control": 6,
+        "system_acc": 0.42857142857142855,
+        "control_acc": 0.42857142857142855,
+        "lift": 0.0
+      },
+      "multi-session": {
+        "n": 26,
+        "system": 6,
+        "control": 7,
+        "system_acc": 0.23076923076923078,
+        "control_acc": 0.2692307692307692,
+        "lift": -0.038461538461538436
+      },
+      "temporal-reasoning": {
+        "n": 25,
+        "system": 3,
+        "control": 3,
+        "system_acc": 0.12,
+        "control_acc": 0.12,
+        "lift": 0.0
+      },
+      "single-session-assistant": {
+        "n": 10,
+        "system": 6,
+        "control": 6,
+        "system_acc": 0.6,
+        "control_acc": 0.6,
+        "lift": 0.0
+      }
+    }
+  },
+  {
     "model": "ollama:qwen2.5:7b-instruct",
     "conditioner": "all",
     "baseline": "identity",

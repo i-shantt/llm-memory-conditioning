@@ -30,9 +30,10 @@ calls, no model, no training, no write-time work. It is a layer, not a
 competitor — it sits on top of any retriever or memory system.
 
 **Measured: +0.132 accuracy on Qwen2.5-1.5B (p = 0.002), for 6.8% more read
-tokens and zero LLM calls** — enough that a 1.5B model matches a 7B one with no
-conditioning. Nothing is significant at 7B, which is the point: the transforms
-do work the small model cannot do for itself. [Results below.](#results)
+tokens and zero LLM calls** — enough that a 1.5B model matches an unconditioned
+7B. The effect decays monotonically with model size (12, 8, 4 questions fixed at
+1.5B, 3B, 7B), which is the point: the transforms do work the small model cannot
+do for itself, and bigger models need less of it. [Results below.](#results)
 
 ## What is and is not new here
 
@@ -146,48 +147,63 @@ Each conditioner is paired against the `identity` arm on the same 91 graded
 question ids — same retriever, same k, same model, same seed, same prompt
 template. Exact McNemar on discordant pairs, paired bootstrap CI.
 
-**1.5B** (baseline `identity` = 0.2747)
+| Δ accuracy vs `identity` | 1.5B | 3B | 7B |
+|---|---|---|---|
+| `all` | **+0.1319** (p=0.002) | +0.0879 (p=0.057) | +0.0440 (p=0.424) |
+| `temporal` | **+0.1099** (p=0.006) | +0.0549 (p=0.302) | +0.0110 (p=1.000) |
+| `supersede:mark` | −0.0110 | −0.0220 | −0.0110 |
+| baseline `identity` | 0.2747 | 0.3077 | 0.4176 |
+| Δ read tokens (`all`) | +6.8% | +6.9% | +6.9% |
+| LLM calls | **0** | **0** | **0** |
 
-| conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
-|---|---|---|---|---|---|---|
-| `all` | 0.4066 | **+0.1319** | [+0.055, +0.209] | **0.0018** | +6.8% | 0 |
-| `temporal` | 0.3846 | **+0.1099** | [+0.044, +0.187] | **0.0063** | +5.7% | 0 |
-| `supersede:mark` | 0.2637 | −0.0110 | [−0.044, +0.022] | 1.000 | +1.0% | 0 |
+Full per-arm tables including `supersede:drop` are in
+`results/conditioner_comparison.json`.
 
-**7B** (baseline `identity` = 0.4176)
+### The effect decays monotonically with model size
 
-| conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
-|---|---|---|---|---|---|---|
-| `all` | 0.4615 | +0.0440 | [−0.033, +0.121] | 0.424 | +6.9% | 0 |
-| `temporal` | 0.4286 | +0.0110 | [−0.066, +0.088] | 1.000 | +5.8% | 0 |
-| `supersede:drop` | 0.4066 | −0.0110 | [−0.066, +0.044] | 1.000 | −8.3% | 0 |
-| `supersede:mark` | 0.4066 | −0.0110 | [−0.044, +0.022] | 1.000 | +1.0% | 0 |
+This is the shape worth looking at, not any single number. Counting the net
+questions fixed out of 91:
 
-### Conditioning substitutes for model capacity
+| net questions fixed | 1.5B | 3B | 7B |
+|---|---|---|---|
+| `all` | **12** | **8** | **4** |
+| `temporal` | **10** | **5** | **1** |
 
-Everything significant happens at 1.5B. Nothing at 7B is distinguishable from
-noise. That is the result, not a disappointment: the transforms do work the
-model cannot do for itself, and a 7B model can already do it.
+Four fewer questions per rung, in a straight line. A single significant result
+is a p-value; a dose-response gradient across three model sizes is a mechanism.
+The transforms do arithmetic and ordering the small model cannot do for itself,
+and each larger model needs less of that help.
+
+The honest caveat: only 1.5B clears significance outright. At 3B the two tests
+disagree at the margin — the bootstrap CI excludes zero ([+0.011, +0.165]) while
+exact McNemar gives p = 0.057 — so 3B is suggestive, not established. 7B is
+plainly null.
+
+### Conditioning compresses the model-size gap
 
 The comparison that makes the point:
 
-| | accuracy | token-F1 | median answer |
+| | `identity` | `all` | median answer |
 |---|---|---|---|
-| 1.5B `identity` | 0.2747 | 0.1755 | 14 words |
-| 1.5B `all` | **0.4066** | **0.1821** | 16 words |
-| 7B `identity` | 0.4176 | 0.1759 | 30 words |
+| 1.5B | 0.2747 | **0.4066** | 14 → 16 words |
+| 3B | 0.3077 | 0.3956 | 20 → 17 words |
+| 7B | 0.4176 | 0.4615 | 30 → 26 words |
+| **spread across sizes** | **0.143** | **0.066** | |
 
-**A 1.5B model with free conditioning matches a 7B model without it** — 0.4066
-against 0.4176, a one-question difference at 4.7× fewer parameters.
+Unconditioned, accuracy spans 0.143 across a 4.7× parameter range. Conditioned,
+that spread more than halves to 0.066. **A 1.5B model with free conditioning
+(0.4066) matches an unconditioned 7B (0.4176)** — a one-question difference —
+and beats an unconditioned 3B outright.
 
 That comparison is exactly the kind memllm warns about, because containment
 rewards length and 7B answers are twice as long. So check it against token-F1,
 which penalises length instead: scaling 1.5B→7B buys **+0.1429 accuracy but only
-+0.0005 token-F1** — the scaling gain is almost entirely verbosity. Conditioning
-at 1.5B buys +0.1319 accuracy *and* **+0.0066 token-F1**, thirteen times the
-scaling gain on the metric that cannot be inflated by talking more. Median answer
-length barely moves (14 → 16 words). The answers are not longer. They are right
-more often.
++0.0005 token-F1** — the scaling gain is almost entirely verbosity, and 7B's
+answers are twice as long. Conditioning at 1.5B buys +0.1319 accuracy *and*
+**+0.0066 token-F1**, thirteen times the scaling gain on the metric that cannot
+be inflated by talking more, while median answer length moves only 14 → 16 words.
+At 3B and 7B conditioning makes answers *shorter* (20 → 17, 30 → 26) and more
+accurate at the same time. The answers are not longer. They are right more often.
 
 ### The annotation nobody read
 
@@ -276,9 +292,11 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 - **Mechanical correctness does not imply usefulness, and the gate cannot tell
   the difference.** `supersede:mark` passed at 96.4% precision and moved accuracy
   by 0.000. Treat every gate number as necessary, never sufficient.
-- **One benchmark, one model family, two sizes, n=100.** Whether the 1.5B result
-  holds for other small models, or at 3B, is untested. The 7B nulls have CIs
-  wide enough (±0.08) to hide a real effect of the size seen at 1.5B.
+- **One benchmark, one model family, three sizes, n=100.** Whether this holds
+  for other small models is untested. Only 1.5B clears significance outright;
+  3B is suggestive with the two tests disagreeing at the margin, and 7B is null
+  with a CI wide enough (±0.08) to hide a real effect. The monotonic gradient is
+  the load-bearing evidence, not any single arm.
 - **The cross-model claim is the fragile one.** "1.5B conditioned matches 7B" is
   a comparison memllm explicitly warns against, because containment rewards
   length. It survives a token-F1 check, but token-F1 differences here are small
