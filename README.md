@@ -30,10 +30,12 @@ calls, no model, no training, no write-time work. It is a layer, not a
 competitor — it sits on top of any retriever or memory system.
 
 **Measured: +0.132 accuracy on Qwen2.5-1.5B (p = 0.002), for 6.8% more read
-tokens and zero LLM calls** — enough that a 1.5B model matches an unconditioned
-7B. The effect decays monotonically with model size (12, 8, 4 questions fixed at
-1.5B, 3B, 7B), which is the point: the transforms do work the small model cannot
-do for itself, and bigger models need less of it. [Results below.](#results)
+tokens and zero LLM calls**, decaying cleanly with model size across the Qwen
+family. **It does not transfer**: on Gemma2 2B it is a null and on Llama3.2 3B
+it trends negative. The one effect that crosses all five models is on
+`knowledge-update`. [Results below.](#results) — including
+[why it does not transfer](#it-does-not-transfer), which is the more useful
+half.
 
 ## What is and is not new here
 
@@ -142,68 +144,69 @@ penalising it.
 
 ## Results
 
-Qwen2.5, BM25 at k=10, n=100, `max_new_tokens=256`, deterministic grading.
-Each conditioner is paired against the `identity` arm on the same 91 graded
-question ids — same retriever, same k, same model, same seed, same prompt
-template. Exact McNemar on discordant pairs, paired bootstrap CI.
+Qwen2.5, Gemma2 and Llama3.2 via Ollama, BM25 at k=10, n=100,
+`max_new_tokens=256`, deterministic grading. Each conditioner is paired against
+that model's own `identity` arm on the same 91 graded question ids — same
+retriever, same k, same model, same seed, same prompt template. Exact McNemar on
+discordant pairs, paired bootstrap CI.
 
-| Δ accuracy vs `identity` | 1.5B | 3B | 7B |
+| model | baseline | `all` Δ | `temporal` Δ |
 |---|---|---|---|
-| `all` | **+0.1319** (p=0.002) | +0.0879 (p=0.057) | +0.0440 (p=0.424) |
-| `temporal` | **+0.1099** (p=0.006) | +0.0549 (p=0.302) | +0.0110 (p=1.000) |
-| `supersede:mark` | −0.0110 | −0.0220 | −0.0110 |
-| baseline `identity` | 0.2747 | 0.3077 | 0.4176 |
-| Δ read tokens (`all`) | +6.8% | +6.9% | +6.9% |
-| LLM calls | **0** | **0** | **0** |
+| Qwen2.5 1.5B | 0.2747 | **+0.1319** (p=0.002) | **+0.1099** (p=0.006) |
+| Qwen2.5 3B | 0.3077 | +0.0879 (p=0.057) | +0.0549 (p=0.302) |
+| Qwen2.5 7B | 0.4176 | +0.0440 (p=0.424) | +0.0110 (p=1.000) |
+| Gemma2 2B | 0.3297 | −0.0110 (p=1.000) | +0.0110 (p=1.000) |
+| Llama3.2 3B | 0.4286 | −0.0549 (p=0.180) | −0.0659 (p=0.109) |
 
-Full per-arm tables including `supersede:drop` are in
-`results/conditioner_comparison.json`.
+Read the bottom two rows first.
 
-### The effect decays monotonically with model size
+## It does not transfer
 
-This is the shape worth looking at, not any single number. Counting the net
-questions fixed out of 91:
+Within Qwen2.5 the effect is large at 1.5B and decays cleanly with model size —
+12, 8, then 4 net questions fixed out of 91. That looked like a capacity story:
+the transforms do arithmetic and ordering a small model cannot do for itself.
 
-| net questions fixed | 1.5B | 3B | 7B |
-|---|---|---|---|
-| `all` | **12** | **8** | **4** |
-| `temporal` | **10** | **5** | **1** |
+**On Gemma2 2B and Llama3.2 3B, it is gone.** Gemma is a null. Llama trends
+*negative* on both arms, and `temporal` alone at −0.0659 (p = 0.109) is closer to
+a real regression than to nothing.
 
-Four fewer questions per rung, in a straight line. A single significant result
-is a p-value; a dose-response gradient across three model sizes is a mechanism.
-The transforms do arithmetic and ordering the small model cannot do for itself,
-and each larger model needs less of that help.
+So the honest claim is narrower than the Qwen gradient suggests: **this is a
+Qwen2.5 result, not a small-model result.** A dose-response curve inside one
+family is not evidence about models in general, and running two other families is
+what turned that from an assumption into a finding.
 
-The honest caveat: only 1.5B clears significance outright. At 3B the two tests
-disagree at the margin — the bootstrap CI excludes zero ([+0.011, +0.165]) while
-exact McNemar gives p = 0.057 — so 3B is suggestive, not established. 7B is
-plainly null.
+### What survives, and a hypothesis about what breaks
 
-### Conditioning compresses the model-size gap
+The per-type breakdown is more informative than the totals, because the
+conditioner is doing two things at once and they pull in opposite directions.
 
-The comparison that makes the point:
+| Δ by question type (`all`) | Qwen 1.5B | Qwen 3B | Qwen 7B | Gemma 2B | Llama 3B |
+|---|---|---|---|---|---|
+| knowledge-update | +0.250 | +0.312 | +0.062 | **+0.188** | **+0.062** |
+| temporal-reasoning | +0.200 | +0.000 | +0.080 | −0.120 | −0.040 |
+| multi-session | +0.077 | +0.000 | +0.000 | −0.038 | −0.038 |
+| single-session-user | +0.000 | +0.214 | +0.000 | **−0.143** | **−0.214** |
+| single-session-assistant | +0.100 | +0.000 | +0.100 | +0.200 | −0.100 |
 
-| | `identity` | `all` | median answer |
-|---|---|---|---|
-| 1.5B | 0.2747 | **0.4066** | 14 → 16 words |
-| 3B | 0.3077 | 0.3956 | 20 → 17 words |
-| 7B | 0.4176 | 0.4615 | 30 → 26 words |
-| **spread across sizes** | **0.143** | **0.066** | |
+**`knowledge-update` improves on all five models, without exception.** That is
+the one signal that crosses families, and it is the slice this project was built
+for.
 
-Unconditioned, accuracy spans 0.143 across a 4.7× parameter range. Conditioned,
-that spread more than halves to 0.066. **A 1.5B model with free conditioning
-(0.4066) matches an unconditioned 7B (0.4176)** — a one-question difference —
-and beats an unconditioned 3B outright.
+What goes wrong on the new models is concentrated in `single-session-user` —
+−0.143 and −0.214, the two largest negatives anywhere in the table. That is the
+question type where a single turn holds the answer and BM25 ranks it first, so it
+is exactly where discarding retrieval rank should cost the most.
 
-That comparison is exactly the kind memllm warns about, because containment
-rewards length and 7B answers are twice as long. So check it against token-F1,
-which penalises length instead: scaling 1.5B→7B buys **+0.1429 accuracy but only
-+0.0005 token-F1** — the scaling gain is almost entirely verbosity, and 7B's
-answers are twice as long. Conditioning at 1.5B buys +0.1319 accuracy *and*
-**+0.0066 token-F1**, thirteen times the scaling gain on the metric that cannot
-be inflated by talking more, while median answer length moves only 14 → 16 words.
-At 3B and 7B conditioning makes answers *shorter* (20 → 17, 30 → 26) and more
-accurate at the same time. The answers are not longer. They are right more often.
+`temporal` re-sorts the retrieved units chronologically, which throws that rank
+away. The hypothesis is that the two halves of the conditioner separate: **the
+date annotation helps, and the chronological re-sort hurts models that rely on
+rank order.** Qwen2.5's small models may simply be weak enough at baseline that
+losing rank costs them nothing.
+
+This is a hypothesis, not a result. `TemporalConditioner(sort=False)` exists —
+`temporal:norank`, annotation without re-ordering — and has never been run. That
+is the experiment that would settle it, and until it is run the claim above is
+speculation with a plausible mechanism.
 
 ### The annotation nobody read
 
@@ -292,11 +295,17 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 - **Mechanical correctness does not imply usefulness, and the gate cannot tell
   the difference.** `supersede:mark` passed at 96.4% precision and moved accuracy
   by 0.000. Treat every gate number as necessary, never sufficient.
-- **One benchmark, one model family, three sizes, n=100.** Whether this holds
-  for other small models is untested. Only 1.5B clears significance outright;
-  3B is suggestive with the two tests disagreeing at the margin, and 7B is null
-  with a CI wide enough (±0.08) to hide a real effect. The monotonic gradient is
-  the load-bearing evidence, not any single arm.
+- **The headline result is family-specific.** Within Qwen2.5 the gradient is
+  clean; on Gemma2 2B and Llama3.2 3B it disappears. Only Qwen 1.5B clears
+  significance outright — 3B is suggestive with the two tests disagreeing at the
+  margin, 7B is null, and both non-Qwen models are null-to-negative. Nothing here
+  supports a claim about small models in general.
+- **n=100 gives a CI of roughly ±0.08 per arm**, so no single model settles
+  anything. The Qwen gradient and the consistent `knowledge-update` sign across
+  five models are the load-bearing evidence; individual arms are not.
+- **`temporal` confounds two changes** — date annotation and chronological
+  re-sorting — and the results cannot separate them. `temporal:norank` exists and
+  has not been run.
 - **The cross-model claim is the fragile one.** "1.5B conditioned matches 7B" is
   a comparison memllm explicitly warns against, because containment rewards
   length. It survives a token-F1 check, but token-F1 differences here are small
