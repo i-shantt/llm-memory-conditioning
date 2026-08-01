@@ -175,9 +175,13 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 - **`fired` is not `n`.** `supersede:mark` fires on 53.8% of knowledge-update
   questions but annotates the *newest evidence unit* on 28 of 78, which is what
   HARM and PREC are rates over. The rest of the time it annotated other units.
-- **The gate uses BM25**, not the hybrid retriever the accuracy arms will use.
-  BM25 also scores `any_hit@10 = 1.000` on knowledge-update, so the evidence is
-  equally present, but the distractors differ.
+- **Everything here uses BM25**, not a hybrid retriever. That started as a
+  workaround -- sentence-transformers crashed on the Kaggle GPU with "no kernel
+  image is available for execution on the device" -- but it is the better
+  choice: BM25 also scores `any_hit@10 = 1.000` on knowledge-update, and the
+  gate and the accuracy arms now describe the same retrieval rather than two
+  different ones. Whether these conditioners behave the same over a dense
+  retriever's distractors is untested.
 - **`is_evidence` is LongMemEval's own labelling** and inherits whatever errors
   it contains.
 - **Conditioning cannot fix a retrieval miss.** It only changes the presentation

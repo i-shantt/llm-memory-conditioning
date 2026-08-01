@@ -140,7 +140,20 @@ import subprocess, os, time, json
 # mid-subtraction on temporal questions ("...have been taking classes fo"),
 # which understates precisely the slice the temporal conditioner targets. The
 # baseline arm is re-run at the same cap, so the comparison stays paired.
-def arm(size, conditioner, k="10", retriever="hybrid"):
+# BM25, not hybrid. The first push died in sentence-transformers with
+# "CUDA error: no kernel image is available for execution on the device" --
+# this Kaggle GPU's architecture is not in the installed torch's kernel set.
+# Pinning the embedder to CPU would work but costs ~20 min of embedding.
+#
+# BM25 is the better answer anyway, for two reasons that have nothing to do
+# with the crash. It also scores any_hit@10 = 1.000 on knowledge-update, so the
+# evidence is equally present. And the CPU gate in Cell 3 ran on BM25, so the
+# mechanical numbers and the accuracy numbers now describe the same retrieval
+# instead of two different ones.
+#
+# The comparison is unaffected: every arm is paired against an `identity` arm
+# using the SAME retriever, so the retriever is held constant by construction.
+def arm(size, conditioner, k="10", retriever="bm25"):
     tag = f"cond_{size}_{conditioner.replace(':', '-')}_k{k}_n{N}"
     out = f"/kaggle/working/llm-memory-conditioning/results/{tag}.json"
     if os.path.exists(out):
