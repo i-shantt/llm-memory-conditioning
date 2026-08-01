@@ -84,7 +84,12 @@ def main() -> None:
             rep = compute_lift(arm, [base_arm], seed=args.seed)
             dtok = (payload["read_tokens_per_query"]
                     / base_payload["read_tokens_per_query"] - 1)
-            star = "*" if rep.significant else " "
+            # memllm's `significant` is one-sided -- it asks whether the system
+            # BEAT the control, so ci_lo > 0. A real regression therefore gets
+            # no marker at all, which would quietly bury the supersede:drop
+            # result this run exists partly to demonstrate. Flag both directions.
+            regression = rep.ci_hi < 0 and rep.p_value < 0.05
+            star = "*" if rep.significant else ("!" if regression else " ")
             print(f"  {name:22s} {arm.accuracy:7.4f} "
                   f"{rep.lift:+8.4f}{star} "
                   f"[{rep.ci_lo:+.3f},{rep.ci_hi:+.3f}] {rep.p_value:9.4f} "
@@ -96,6 +101,7 @@ def main() -> None:
                 "accuracy": arm.accuracy, "delta": rep.lift,
                 "ci_lo": rep.ci_lo, "ci_hi": rep.ci_hi,
                 "p_value": rep.p_value, "significant": rep.significant,
+                "significant_regression": regression,
                 "contingency": rep.contingency,
                 "read_tokens_per_query": payload["read_tokens_per_query"],
                 "token_delta_pct": dtok,
@@ -120,7 +126,8 @@ def main() -> None:
             print(row)
 
     Path(args.out).write_text(json.dumps(reports, indent=2))
-    print(f"\n* = significant: p < 0.05 and the CI excludes zero")
+    print(f"\n* = significant improvement (p < 0.05, CI entirely above zero)")
+    print(f"! = significant REGRESSION (p < 0.05, CI entirely below zero)")
     print(f"Δtok is read tokens per query against the baseline. A conditioner "
           f"that buys\naccuracy with tokens has not made anything free.")
     print(f"\nwrote {args.out}")
