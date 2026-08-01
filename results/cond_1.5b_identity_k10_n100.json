@@ -21,7 +21,7 @@
   },
   "n_examples": 100,
   "grader": "deterministic (memllm.eval.grade); audit in memllm/results/grader_audit.json",
-  "accuracy": 0.26373626373626374,
+  "accuracy": 0.27472527472527475,
   "n_graded": 91,
   "n_not_gradable": 9,
   "not_gradable_note": "abstractive gold answers with no checkable surface form; excluded rather than scored as wrong",
@@ -34,8 +34,8 @@
     },
     "multi-session": {
       "n": 26,
-      "correct": 2,
-      "accuracy": 0.07692307692307693
+      "correct": 3,
+      "accuracy": 0.11538461538461539
     },
     "single-session-assistant": {
       "n": 10,
@@ -293,7 +293,7 @@
       "pred": "I'm sorry, but the excerpts provided do not contain information about when your iPad case arrived.",
       "is_abstention": true,
       "extractive": true,
-      "deterministic": false,
+      "deterministic": true,
       "judge": null,
       "raw_verdict": "",
       "prompt_tokens": 2452,

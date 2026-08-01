@@ -29,7 +29,7 @@ applied to the k retrieved units after retrieval, before prompt assembly. No LLM
 calls, no model, no training, no write-time work. It is a layer, not a
 competitor — it sits on top of any retriever or memory system.
 
-**Measured: +0.143 accuracy on Qwen2.5-1.5B (p = 0.001), for 6.8% more read
+**Measured: +0.132 accuracy on Qwen2.5-1.5B (p = 0.002), for 6.8% more read
 tokens and zero LLM calls** — enough that a 1.5B model matches a 7B one with no
 conditioning. Nothing is significant at 7B, which is the point: the transforms
 do work the small model cannot do for itself. [Results below.](#results)
@@ -146,20 +146,20 @@ Each conditioner is paired against the `identity` arm on the same 91 graded
 question ids — same retriever, same k, same model, same seed, same prompt
 template. Exact McNemar on discordant pairs, paired bootstrap CI.
 
-**1.5B** (baseline `identity` = 0.2637)
+**1.5B** (baseline `identity` = 0.2747)
 
 | conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
 |---|---|---|---|---|---|---|
-| `all` | 0.4066 | **+0.1429** | [+0.066, +0.220] | **0.0010** | +6.8% | 0 |
-| `temporal` | 0.3846 | **+0.1209** | [+0.055, +0.198] | **0.0034** | +5.7% | 0 |
-| `supersede:mark` | 0.2637 | +0.0000 | [−0.044, +0.044] | 1.000 | +1.0% | 0 |
+| `all` | 0.4066 | **+0.1319** | [+0.055, +0.209] | **0.0018** | +6.8% | 0 |
+| `temporal` | 0.3846 | **+0.1099** | [+0.044, +0.187] | **0.0063** | +5.7% | 0 |
+| `supersede:mark` | 0.2637 | −0.0110 | [−0.044, +0.022] | 1.000 | +1.0% | 0 |
 
 **7B** (baseline `identity` = 0.4176)
 
 | conditioner | acc | Δ | 95% CI | p | Δ read tokens | LLM calls |
 |---|---|---|---|---|---|---|
-| `all` | 0.4725 | +0.0549 | [−0.022, +0.132] | 0.302 | +6.9% | 0 |
-| `temporal` | 0.4396 | +0.0220 | [−0.055, +0.099] | 0.791 | +5.8% | 0 |
+| `all` | 0.4615 | +0.0440 | [−0.033, +0.121] | 0.424 | +6.9% | 0 |
+| `temporal` | 0.4286 | +0.0110 | [−0.066, +0.088] | 1.000 | +5.8% | 0 |
 | `supersede:drop` | 0.4066 | −0.0110 | [−0.066, +0.044] | 1.000 | −8.3% | 0 |
 | `supersede:mark` | 0.4066 | −0.0110 | [−0.044, +0.022] | 1.000 | +1.0% | 0 |
 
@@ -173,7 +173,7 @@ The comparison that makes the point:
 
 | | accuracy | token-F1 | median answer |
 |---|---|---|---|
-| 1.5B `identity` | 0.2637 | 0.1755 | 14 words |
+| 1.5B `identity` | 0.2747 | 0.1755 | 14 words |
 | 1.5B `all` | **0.4066** | **0.1821** | 16 words |
 | 7B `identity` | 0.4176 | 0.1759 | 30 words |
 
@@ -182,16 +182,16 @@ against 0.4176, a one-question difference at 4.7× fewer parameters.
 
 That comparison is exactly the kind memllm warns about, because containment
 rewards length and 7B answers are twice as long. So check it against token-F1,
-which penalises length instead: scaling 1.5B→7B buys **+0.1538 accuracy but only
+which penalises length instead: scaling 1.5B→7B buys **+0.1429 accuracy but only
 +0.0005 token-F1** — the scaling gain is almost entirely verbosity. Conditioning
-at 1.5B buys +0.1429 accuracy *and* **+0.0066 token-F1**, thirteen times the
+at 1.5B buys +0.1319 accuracy *and* **+0.0066 token-F1**, thirteen times the
 scaling gain on the metric that cannot be inflated by talking more. Median answer
 length barely moves (14 → 16 words). The answers are not longer. They are right
 more often.
 
 ### The annotation nobody read
 
-`supersede:mark` did **nothing**: +0.0000 at 1.5B, −0.0110 at 7B.
+`supersede:mark` did **nothing**: −0.0110 at both 1.5B and 7B.
 
 This is the part worth dwelling on, because it is where the CPU gate failed. The
 gate certified this conditioner: on knowledge-update it marked the newest
@@ -211,7 +211,7 @@ against `supersede:mark`'s +0.000 on the same slice.
 |---|---|---|---|
 | knowledge-update | **+0.250** | +0.000 | **+0.250** |
 | temporal-reasoning | +0.120 | +0.000 | +0.200 |
-| multi-session | +0.115 | +0.077 | +0.115 |
+| multi-session | +0.077 | +0.038 | +0.077 |
 | single-session-assistant | +0.100 | −0.100 | +0.100 |
 | single-session-user | +0.000 | −0.071 | +0.000 |
 
@@ -220,6 +220,20 @@ labels each unit with its age. That is apparently enough: **the model does not
 need to be told which fact is current, it needs the chronology made legible
 enough to work it out.** Being told directly, in a label with 96% precision,
 changed nothing.
+
+### A correction found by reading the flips
+
+The first version of these numbers had `temporal` at +0.1209. Checking *which*
+twelve questions it fixed turned one up that was not a conditioning effect at
+all: both arms refused an abstention question, but `identity` wrote "the
+excerpts provided **do** not contain information" and the grader's refusal
+patterns only matched "**does** not contain". One arm's refusal was detected and
+the other's was not, which is a fake +1.
+
+Fixed in memllm and re-graded through `scripts/regrade.py --pattern 'cond_*.json'`,
+which is why the numbers above are slightly smaller than a first reading would
+have given. Aggregate accuracy would never have shown this. Reading the individual
+flips did.
 
 ### Deletion
 

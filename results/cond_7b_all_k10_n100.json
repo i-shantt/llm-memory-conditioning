@@ -21,7 +21,7 @@
   },
   "n_examples": 100,
   "grader": "deterministic (memllm.eval.grade); audit in memllm/results/grader_audit.json",
-  "accuracy": 0.4725274725274725,
+  "accuracy": 0.46153846153846156,
   "n_graded": 91,
   "n_not_gradable": 9,
   "not_gradable_note": "abstractive gold answers with no checkable surface form; excluded rather than scored as wrong",
@@ -49,8 +49,8 @@
     },
     "temporal-reasoning": {
       "n": 25,
-      "correct": 9,
-      "accuracy": 0.36
+      "correct": 8,
+      "accuracy": 0.32
     }
   },
   "cost_total": {
@@ -83,7 +83,7 @@
       "pred": "Based on the information provided, it is not clear which group was joined first between 'Page Turners' and 'Marketing Professionals'. The conversations do not specify the order in which these groups were joined.",
       "is_abstention": false,
       "extractive": true,
-      "deterministic": true,
+      "deterministic": false,
       "judge": null,
       "raw_verdict": "",
       "prompt_tokens": 3677,

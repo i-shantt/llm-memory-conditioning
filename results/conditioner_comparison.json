@@ -3,18 +3,18 @@
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "all",
     "baseline": "identity",
-    "baseline_accuracy": 0.26373626373626374,
+    "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.4065934065934066,
-    "delta": 0.14285714285714285,
-    "ci_lo": 0.06593406593406594,
-    "ci_hi": 0.21978021978021978,
-    "p_value": 0.0009765625,
+    "delta": 0.13186813186813187,
+    "ci_lo": 0.054945054945054944,
+    "ci_hi": 0.2087912087912088,
+    "p_value": 0.0018310546875,
     "significant": true,
     "significant_regression": false,
     "contingency": {
       "n": 91,
-      "both": 23,
-      "system_only": 14,
+      "both": 24,
+      "system_only": 13,
       "control_only": 1,
       "neither": 53
     },
@@ -41,10 +41,10 @@
       "multi-session": {
         "n": 26,
         "system": 5,
-        "control": 2,
+        "control": 3,
         "system_acc": 0.19230769230769232,
-        "control_acc": 0.07692307692307693,
-        "lift": 0.11538461538461539
+        "control_acc": 0.11538461538461539,
+        "lift": 0.07692307692307693
       },
       "temporal-reasoning": {
         "n": 25,
@@ -68,18 +68,18 @@
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "temporal",
     "baseline": "identity",
-    "baseline_accuracy": 0.26373626373626374,
+    "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.38461538461538464,
-    "delta": 0.12087912087912088,
-    "ci_lo": 0.054945054945054944,
-    "ci_hi": 0.1978021978021978,
-    "p_value": 0.00341796875,
+    "delta": 0.10989010989010989,
+    "ci_lo": 0.04395604395604396,
+    "ci_hi": 0.18681318681318682,
+    "p_value": 0.00634765625,
     "significant": true,
     "significant_regression": false,
     "contingency": {
       "n": 91,
-      "both": 23,
-      "system_only": 12,
+      "both": 24,
+      "system_only": 11,
       "control_only": 1,
       "neither": 55
     },
@@ -106,10 +106,10 @@
       "multi-session": {
         "n": 26,
         "system": 5,
-        "control": 2,
+        "control": 3,
         "system_acc": 0.19230769230769232,
-        "control_acc": 0.07692307692307693,
-        "lift": 0.11538461538461539
+        "control_acc": 0.11538461538461539,
+        "lift": 0.07692307692307693
       },
       "temporal-reasoning": {
         "n": 25,
@@ -133,18 +133,18 @@
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "supersede:mark",
     "baseline": "identity",
-    "baseline_accuracy": 0.26373626373626374,
+    "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.26373626373626374,
-    "delta": 0.0,
+    "delta": -0.01098901098901099,
     "ci_lo": -0.04395604395604396,
-    "ci_hi": 0.04395604395604396,
+    "ci_hi": 0.02197802197802198,
     "p_value": 1.0,
     "significant": false,
     "significant_regression": false,
     "contingency": {
       "n": 91,
-      "both": 22,
-      "system_only": 2,
+      "both": 23,
+      "system_only": 1,
       "control_only": 2,
       "neither": 65
     },
@@ -171,10 +171,10 @@
       "multi-session": {
         "n": 26,
         "system": 4,
-        "control": 2,
+        "control": 3,
         "system_acc": 0.15384615384615385,
-        "control_acc": 0.07692307692307693,
-        "lift": 0.07692307692307693
+        "control_acc": 0.11538461538461539,
+        "lift": 0.038461538461538464
       },
       "temporal-reasoning": {
         "n": 25,
@@ -199,19 +199,19 @@
     "conditioner": "all",
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
-    "accuracy": 0.4725274725274725,
-    "delta": 0.054945054945054944,
-    "ci_lo": -0.02197802197802198,
-    "ci_hi": 0.13186813186813187,
-    "p_value": 0.3017578125,
+    "accuracy": 0.46153846153846156,
+    "delta": 0.04395604395604396,
+    "ci_lo": -0.03296703296703297,
+    "ci_hi": 0.12087912087912088,
+    "p_value": 0.4239501953125,
     "significant": false,
     "significant_regression": false,
     "contingency": {
       "n": 91,
       "both": 33,
-      "system_only": 10,
+      "system_only": 9,
       "control_only": 5,
-      "neither": 43
+      "neither": 44
     },
     "read_tokens_per_query": 3102.61,
     "token_delta_pct": 0.06866787221217607,
@@ -243,11 +243,11 @@
       },
       "temporal-reasoning": {
         "n": 25,
-        "system": 9,
+        "system": 8,
         "control": 6,
-        "system_acc": 0.36,
+        "system_acc": 0.32,
         "control_acc": 0.24,
-        "lift": 0.12
+        "lift": 0.08000000000000002
       },
       "single-session-assistant": {
         "n": 10,
@@ -264,19 +264,19 @@
     "conditioner": "temporal",
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
-    "accuracy": 0.43956043956043955,
-    "delta": 0.02197802197802198,
-    "ci_lo": -0.054945054945054944,
-    "ci_hi": 0.0989010989010989,
-    "p_value": 0.79052734375,
+    "accuracy": 0.42857142857142855,
+    "delta": 0.01098901098901099,
+    "ci_lo": -0.06593406593406594,
+    "ci_hi": 0.08791208791208792,
+    "p_value": 1.0,
     "significant": false,
     "significant_regression": false,
     "contingency": {
       "n": 91,
       "both": 32,
-      "system_only": 8,
+      "system_only": 7,
       "control_only": 6,
-      "neither": 45
+      "neither": 46
     },
     "read_tokens_per_query": 3072.45,
     "token_delta_pct": 0.058279514337380434,
@@ -308,11 +308,11 @@
       },
       "temporal-reasoning": {
         "n": 25,
-        "system": 7,
+        "system": 6,
         "control": 6,
-        "system_acc": 0.28,
+        "system_acc": 0.24,
         "control_acc": 0.24,
-        "lift": 0.040000000000000036
+        "lift": 0.0
       },
       "single-session-assistant": {
         "n": 10,
