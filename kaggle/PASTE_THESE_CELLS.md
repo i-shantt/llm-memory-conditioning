@@ -216,4 +216,14 @@ print(f"\nanswers hitting the {MAXNEW}-token cap across all arms: {total_cap}")
 for f in glob.glob("/kaggle/working/llm-memory-conditioning/results/*.json"):
     shutil.copy(f, "/kaggle/working/")
 print("\nresults copied to /kaggle/working for download")
+
+# Ollama's model store lives under /kaggle/working because /root is too small
+# for multi-GB pulls -- but everything under /kaggle/working is kernel OUTPUT,
+# so the models ship with the results. The first fetch after a run tried to pull
+# 4.7 GB and died with an IncompleteRead. Deleting them here costs nothing (a
+# re-push re-pulls them anyway) and keeps the output to the JSON that matters.
+models = os.environ.get("OLLAMA_MODELS", "")
+if models and os.path.isdir(models):
+    shutil.rmtree(models, ignore_errors=True)
+    print(f"removed {models} so it is not part of the kernel output")
 ```
