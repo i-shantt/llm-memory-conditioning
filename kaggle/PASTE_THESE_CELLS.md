@@ -70,22 +70,11 @@ it did not fit and every timing below is wrong.
 ```python
 import subprocess, os, json, sys
 
-# The conditioning repo was created as `lastmile` and renamed afterwards.
-# GitHub 301-redirects a renamed repo, so the old URL keeps working, but try the
-# current name first so this stops depending on a redirect that could be broken
-# by someone later claiming the old name.
 CONDITIONING = "/kaggle/working/llm-memory-conditioning"
-subprocess.run(["git", "clone", "--depth", "1",
-                "https://github.com/i-shantt/memllm.git",
-                "/kaggle/working/memllm"], check=True)
-for name in ("llm-memory-conditioning", "lastmile"):
-    r = subprocess.run(["git", "clone", "--depth", "1",
-                        f"https://github.com/i-shantt/{name}.git", CONDITIONING],
-                       capture_output=True, text=True)
-    if r.returncode == 0:
-        print(f"cloned conditioning repo as {name}"); break
-else:
-    raise RuntimeError(f"could not clone the conditioning repo: {r.stderr}")
+for url, dest in (("memllm", "/kaggle/working/memllm"),
+                  ("llm-memory-conditioning", CONDITIONING)):
+    subprocess.run(["git", "clone", "--depth", "1",
+                    f"https://github.com/i-shantt/{url}.git", dest], check=True)
 os.chdir("/kaggle/working/llm-memory-conditioning")
 os.environ["MEMLLM_PATH"] = "/kaggle/working/memllm"
 subprocess.run(["pip", "install", "-q", "rank_bm25", "sentence-transformers",
