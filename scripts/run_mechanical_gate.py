@@ -17,12 +17,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-import lastmile._deps  # noqa: E402,F401
+import memcond._deps  # noqa: E402,F401
 from memllm.cost import CostLedger  # noqa: E402
 from memllm.data.loader import load_examples, stratified_subset  # noqa: E402
 
-from lastmile.conditioner import build  # noqa: E402
-from lastmile.eval.mechanical import GateTally, score_question  # noqa: E402
+from memcond.conditioner import build  # noqa: E402
+from memcond.eval.mechanical import GateTally, score_question  # noqa: E402
 
 
 def build_retriever(name: str, embed_model: str, device: str):
@@ -54,7 +54,7 @@ def main() -> None:
     ap.add_argument("--out", default="results/mechanical_gate.json")
     args = ap.parse_args()
 
-    data = args.data or str(lastmile._deps.memllm_root() / "data/raw/longmemeval_s")
+    data = args.data or str(memcond._deps.memllm_root() / "data/raw/longmemeval_s")
     examples = load_examples(data)
     if args.limit and args.limit < len(examples):
         examples = stratified_subset(examples, args.limit, seed=0)

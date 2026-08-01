@@ -33,11 +33,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import lastmile._deps  # noqa: F401
+import memcond._deps  # noqa: F401
 from memllm.cost import CostLedger, count_tokens  # noqa: E402
 from memllm.data.loader import MemoryUnit  # noqa: E402
 
-from lastmile.conditioner import (  # noqa: E402
+from memcond.conditioner import (  # noqa: E402
     LATEST, OUTDATED, Conditioner, apply, render_context,
 )
 

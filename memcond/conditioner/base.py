@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-import lastmile._deps  # noqa: F401  (puts memllm on the path)
+import memcond._deps  # noqa: F401  (puts memllm on the path)
 from memllm.cost import CostLedger  # noqa: E402
 from memllm.data.loader import MemoryUnit  # noqa: E402
 

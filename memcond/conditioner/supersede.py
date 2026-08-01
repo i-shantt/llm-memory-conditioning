@@ -32,7 +32,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-import lastmile._deps  # noqa: F401
+import memcond._deps  # noqa: F401
 from memllm.data.loader import MemoryUnit  # noqa: E402
 from memllm.eval.grade import normalize_tokens  # noqa: E402
 

@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from datetime import date
 
-import lastmile._deps  # noqa: F401
+import memcond._deps  # noqa: F401
 from memllm.data.loader import MemoryUnit, parse_date  # noqa: E402
 
 from .base import Conditioning

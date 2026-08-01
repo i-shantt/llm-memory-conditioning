@@ -15,15 +15,15 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-import lastmile._deps  # noqa: E402,F401
+import memcond._deps  # noqa: E402,F401
 from memllm.cost import CostLedger  # noqa: E402
 from memllm.data.loader import MemoryUnit  # noqa: E402
 
-from lastmile.conditioner import (  # noqa: E402
+from memcond.conditioner import (  # noqa: E402
     ComposeConditioner, Conditioning, IdentityConditioner, SupersedeConditioner,
     TemporalConditioner, build, condition, render_context,
 )
-from lastmile.conditioner.temporal import describe_delta, months_between  # noqa: E402
+from memcond.conditioner.temporal import describe_delta, months_between  # noqa: E402
 
 QDATE = "2023/06/01 (Thu) 09:00"
 

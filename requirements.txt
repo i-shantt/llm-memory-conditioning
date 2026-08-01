@@ -1,3 +1,3 @@
-# lastmile itself has no dependencies beyond memllm's.
-# memllm must be on the path -- see lastmile/_deps.py.
+# memcond itself has no dependencies beyond memllm's.
+# memllm must be on the path -- see memcond/_deps.py.
 pytest

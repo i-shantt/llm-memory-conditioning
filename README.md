@@ -1,4 +1,6 @@
-# lastmile — retrieval already worked. The answer is still wrong.
+# llm-memory-conditioning
+
+**Retrieval already worked. The answer is still wrong.**
 
 Memory research optimises **recall**: did the system find the evidence? On
 LongMemEval, good retrievers now essentially have. Hybrid retrieval scores
@@ -143,8 +145,8 @@ rendered. A paired McNemar on that has no confound to argue about.
 ## Layout
 
 ```
-lastmile/conditioner/   base.py, supersede.py, temporal.py — the transforms
-lastmile/eval/          mechanical.py — the CPU gate's metrics
+memcond/conditioner/   base.py, supersede.py, temporal.py — the transforms
+memcond/eval/          mechanical.py — the CPU gate's metrics
 scripts/                run_mechanical_gate.py
 tests/                  48 tests, no model, no network, no benchmark download
 ```
