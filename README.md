@@ -222,13 +222,40 @@ n=14 and n=16, so one question is ±0.07. No individual cell is significant. Wha
 carries weight is that four independent sign flips all landed where the mechanism
 predicted, not the size of any one of them.
 
-### The obvious next thing, not yet done
+### The obvious next thing, and why it was not built
 
 If the sort helps recency questions and hurts rank questions, then sorting
-*conditionally* — only when the question is asking about a current state — should
-capture the gain without the loss. That is a routing decision, it is cheap and
-deterministic, and it has not been built or tested. Nothing in this repo
-currently supports the claim that it would work.
+*conditionally* — only when the question asks about a current state — should
+capture the gain without the loss. Cheap, deterministic, and the natural next
+move.
+
+It does not survive contact with the data. `scripts/test_sort_router.py` tests
+the premise against every banked arm, with no GPU, because every arm stores its
+predictions and "would a router have helped?" is answerable offline.
+
+The premise dies twice.
+
+**The question types do not split on tense.** `knowledge-update` frequently asks
+for the *superseded* value — "What was my **previous** personal best time?", "my
+**former** manager Rachel", "the **earlier** fishing trip". Meanwhile
+`single-session-user` contains "What book am I **currently** reading?". The
+markers cut across the types instead of separating them.
+
+**And the buckets carry no signal.** Grouping all 500 questions by tense marker
+and measuring the sort's effect inside each:
+
+| bucket | n (pooled) | `identity` | `temporal` | Δ |
+|---|---|---|---|---|
+| CURRENT | 40 | 0.500 | 0.550 | +0.050 |
+| PAST | 65 | 0.523 | 0.600 | **+0.077** |
+| NEITHER | 345 | 0.307 | 0.319 | +0.012 |
+
+The largest gain is in PAST, which is backwards from the hypothesis. Per model
+the CURRENT bucket is **n=8** — one question is 0.125 — and four of the five
+models show exactly 0.000 there. A router built on this would be fitting noise.
+
+So it was not built. The script is committed so the next person can see the
+negative result rather than re-deriving it on GPU.
 
 ### Every arm reproduces exactly
 
