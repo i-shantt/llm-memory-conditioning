@@ -2,15 +2,69 @@
 
 **Retrieval already worked. The answer is still wrong.**
 
-Memory research optimises **recall**: did the system find the evidence? On
-LongMemEval, good retrievers now essentially have. Hybrid retrieval scores
-`any_hit@10 = 1.000` on the `knowledge-update` slice — the evidence is in the
-prompt every single time.
+*Companion to [memllm](https://github.com/i-shantt/memllm), which measured what
+LLM memory costs. Read that one first for the cost story; this one is the system.*
 
-A 7B model still gets 9 of those 16 questions wrong.
+---
+
+## In one minute
+
+AI assistants forget. The standard fix is **retrieval**: store the conversation,
+and when a question arrives, search the archive and paste the relevant parts into
+the prompt. Nearly all research effort goes into that search step — *did we find
+the right piece?*
+
+I measured it. The search is essentially solved: on the standard benchmark the
+right piece is retrieved almost every time. **The model then answers wrong
+anyway — on 44 of 91 test questions the answer was already in front of it.**
+
+Asked *"What BBQ sauce am I currently obsessed with?"*, a model answered **Sweet
+Baby Ray's**. Both the old preference and the new one were in its prompt. It
+quoted the outdated one.
+
+It's a research assistant who finds exactly the right email, then hands it to you
+in a shuffled stack of forty pages with the dates torn off. The finding worked.
+You still can't answer the question.
+
+**This repo reformats what the search found, before the model reads it** —
+sorting by date, labelling how long ago each thing happened, doing the date
+arithmetic in advance. It is pure code: **no AI calls, no training, no extra
+cost**, running only when a question is actually asked. Competing approaches run
+an expensive AI pass over your whole history to maintain it.
+
+```mermaid
+flowchart LR
+    A[Conversation<br/>archive] --> B[Search]
+    B --> C[**Reformat**<br/>sort by date · label age<br/>do the arithmetic]
+    C --> D[Model]
+    D --> E[Answer]
+    style C fill:#2d6a4f,color:#fff
+```
+
+**What happened.** On small Qwen models it worked: **+13 percentage points**
+(p = 0.002), enough that a 1.5B model matched a 7B one without it. **On Gemma2
+and Llama3.2 it vanished** — and the interesting part is that the mechanism is
+identified precisely enough to say why. Sorting by date wins the questions where
+"what's most recent?" is the answer and loses the ones where the search engine
+had already ranked the answer first. On Qwen that trade pays; elsewhere it
+cancels.
+
+The feature the project was built around — explicitly tagging facts `OUTDATED` —
+**never worked on any model**, despite the tags being correct 96% of the time.
+The models ignored them.
+
+**Everything below is the evidence for those four paragraphs**, including four
+documented cases where I was wrong. Jump to
+[Results](#results) · [Why it does not transfer](#it-does-not-transfer) ·
+[Honest limits](#honest-limits).
+
+---
+
+## The finding in detail
 
 Joining per-question retrieval hits against per-question correctness across
-[memllm](../memllm)'s stored runs (Qwen2.5-7B, hybrid, k=10, n=100):
+[memllm](https://github.com/i-shantt/memllm)'s stored runs (Qwen2.5-7B, hybrid
+retrieval, k=10, n=100):
 
 | question type | evidence retrieved, answer **wrong** | accuracy given evidence present |
 |---|---|---|
@@ -20,22 +74,15 @@ Joining per-question retrieval hits against per-question correctness across
 | single-session-assistant | 4 / 10 | 0.600 |
 | single-session-user | 3 / 12 | 0.750 |
 
-**44 of 91 graded questions had the answer sitting in the prompt and were
-answered wrong anyway.** Recall is not the binding constraint. What the model
-does with the retrieved text is.
+Hybrid retrieval scores `any_hit@10 = 1.000` on the `knowledge-update` slice —
+the evidence is in the prompt every single time — and a 7B model still gets 9 of
+those 16 wrong. **Recall is not the binding constraint.** What the model does
+with the retrieved text is.
 
-This repo is a **read-time context conditioner**: a deterministic transform
-applied to the k retrieved units after retrieval, before prompt assembly. No LLM
-calls, no model, no training, no write-time work. It is a layer, not a
-competitor — it sits on top of any retriever or memory system.
-
-**Measured: +0.132 accuracy on Qwen2.5-1.5B (p = 0.002), for 6.8% more read
-tokens and zero LLM calls**, decaying cleanly with model size across the Qwen
-family. **It does not transfer**: on Gemma2 2B it is a null and on Llama3.2 3B
-it trends negative. The one effect that crosses all five models is on
-`knowledge-update`. [Results below.](#results) — including
-[why it does not transfer](#it-does-not-transfer), which is the more useful
-half.
+Formally, this repo is a **read-time context conditioner**: a deterministic
+transform applied to the k retrieved units after retrieval and before prompt
+assembly. No LLM calls, no model, no training, no write-time work. It is a
+layer, not a competitor — it sits on top of any retriever or memory system.
 
 ## What is and is not new here
 
