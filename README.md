@@ -158,6 +158,11 @@ discordant pairs, paired bootstrap CI.
 | Gemma2 2B | 0.3297 | −0.0110 (p=1.000) | +0.0110 (p=1.000) |
 | Llama3.2 3B | 0.4286 | −0.0549 (p=0.180) | −0.0659 (p=0.109) |
 
+`temporal:norank` — the same annotation with chronological re-sorting switched
+off — was also run on the two non-Qwen models: Gemma2 −0.0110, Llama3.2 +0.0110.
+Both null, and [why that matters](#what-survives-the-sort-is-the-active-ingredient)
+is the most useful result here.
+
 Read the bottom two rows first.
 
 ## It does not transfer
@@ -175,38 +180,63 @@ Qwen2.5 result, not a small-model result.** A dose-response curve inside one
 family is not evidence about models in general, and running two other families is
 what turned that from an assumption into a finding.
 
-### What survives, and a hypothesis about what breaks
+### What survives: the sort is the active ingredient
 
 The per-type breakdown is more informative than the totals, because the
-conditioner is doing two things at once and they pull in opposite directions.
+conditioner does two things at once — it annotates each unit with its age, and it
+re-sorts the units chronologically instead of by retrieval rank.
+`temporal:norank` runs the annotation with the sort switched off, which separates
+them.
 
-| Δ by question type (`all`) | Qwen 1.5B | Qwen 3B | Qwen 7B | Gemma 2B | Llama 3B |
+| Δ by question type | n | Gemma `temporal` | Gemma `norank` | Llama `temporal` | Llama `norank` |
 |---|---|---|---|---|---|
-| knowledge-update | +0.250 | +0.312 | +0.062 | **+0.188** | **+0.062** |
-| temporal-reasoning | +0.200 | +0.000 | +0.080 | −0.120 | −0.040 |
-| multi-session | +0.077 | +0.000 | +0.000 | −0.038 | −0.038 |
-| single-session-user | +0.000 | +0.214 | +0.000 | **−0.143** | **−0.214** |
-| single-session-assistant | +0.100 | +0.000 | +0.100 | +0.200 | −0.100 |
+| knowledge-update | 16 | **+0.188** | **−0.125** | **+0.062** | +0.000 |
+| single-session-user | 14 | **−0.143** | **+0.071** | **−0.214** | +0.000 |
+| temporal-reasoning | 25 | −0.080 | −0.040 | −0.040 | +0.040 |
+| multi-session | 26 | +0.000 | +0.038 | −0.077 | +0.000 |
+| single-session-assistant | 10 | +0.200 | +0.000 | −0.100 | +0.000 |
 
-**`knowledge-update` improves on all five models, without exception.** That is
-the one signal that crosses families, and it is the slice this project was built
-for.
+Look at the top two rows. Toggling the sort flips the sign on both, in both
+models, in opposite directions:
 
-What goes wrong on the new models is concentrated in `single-session-user` —
-−0.143 and −0.214, the two largest negatives anywhere in the table. That is the
-question type where a single turn holds the answer and BM25 ranks it first, so it
-is exactly where discarding retrieval rank should cost the most.
+- **With the sort**, `knowledge-update` gains and `single-session-user` loses.
+- **Without it**, `knowledge-update` loses and `single-session-user` recovers.
 
-`temporal` re-sorts the retrieved units chronologically, which throws that rank
-away. The hypothesis is that the two halves of the conditioner separate: **the
-date annotation helps, and the chronological re-sort hurts models that rely on
-rank order.** Qwen2.5's small models may simply be weak enough at baseline that
-losing rank costs them nothing.
+That is one mechanism, not two. **The chronological sort trades away the
+questions where retrieval rank is the answer, to win the questions where recency
+is the answer.** `single-session-user` is a single turn that BM25 ranks first —
+re-ordering buries it. `knowledge-update` is a fact that was later revised —
+ordering by date is precisely what surfaces the revision.
 
-This is a hypothesis, not a result. `TemporalConditioner(sort=False)` exists —
-`temporal:norank`, annotation without re-ordering — and has never been run. That
-is the experiment that would settle it, and until it is run the claim above is
-speculation with a plausible mechanism.
+On Qwen2.5 that trade is favourable and the net is positive. On Gemma2 and
+Llama3.2 the two effects cancel, which is why both models sit at a null overall
+however the conditioner is configured.
+
+The original hypothesis — annotation good, sort bad — was **wrong in an
+instructive way**. The sort is not a bug to be removed. It is the active
+ingredient, and it is doing exactly what it was designed to do; it is simply also
+doing damage elsewhere that nobody was measuring.
+
+**Take the per-type numbers with the caution they deserve.** These slices are
+n=14 and n=16, so one question is ±0.07. No individual cell is significant. What
+carries weight is that four independent sign flips all landed where the mechanism
+predicted, not the size of any one of them.
+
+### The obvious next thing, not yet done
+
+If the sort helps recency questions and hurts rank questions, then sorting
+*conditionally* — only when the question is asking about a current state — should
+capture the gain without the loss. That is a routing decision, it is cheap and
+deterministic, and it has not been built or tested. Nothing in this repo
+currently supports the claim that it would work.
+
+### Every arm reproduces exactly
+
+Re-running the two `identity` baselines in a fresh Kaggle session, on different
+allocated hardware, gave **100/100 byte-identical predictions** on both models.
+Generation is greedy (`temperature: 0.0`), and it holds in practice and not just
+in principle. Every paired comparison in this repo therefore compares runs that
+differ only in the thing under test.
 
 ### The annotation nobody read
 
@@ -303,9 +333,14 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 - **n=100 gives a CI of roughly ±0.08 per arm**, so no single model settles
   anything. The Qwen gradient and the consistent `knowledge-update` sign across
   five models are the load-bearing evidence; individual arms are not.
-- **`temporal` confounds two changes** — date annotation and chronological
-  re-sorting — and the results cannot separate them. `temporal:norank` exists and
-  has not been run.
+- **The sort/no-sort split is measured on two models and five question-type
+  slices of n=10–26.** Four sign flips landing where the mechanism predicted is
+  suggestive; none of the individual cells is significant, and the whole pattern
+  rests on roughly a dozen questions changing hands.
+- **The `temporal:norank` comparison was designed after seeing which type broke.**
+  That is post-hoc, and post-hoc hypotheses find patterns in noise. It was
+  pre-registered only in the weak sense that the flag already existed in the
+  code before the transfer run.
 - **The cross-model claim is the fragile one.** "1.5B conditioned matches 7B" is
   a comparison memllm explicitly warns against, because containment rewards
   length. It survives a token-F1 check, but token-F1 differences here are small
