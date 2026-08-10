@@ -247,3 +247,18 @@ def test_prefix_always_leads_with_the_date():
     for name in ALL_NAMES:
         for r in condition(build(name), GYM, GYM_Q, QDATE, CostLedger()):
             assert r.prefix.startswith("20"), f"{name}: {r.prefix!r}"
+
+
+# --- the README shows this output; it must stay true ------------------------
+
+def test_readme_worked_example_is_the_real_output():
+    """The README prints `identity` and `all` over the GYM units and calls the
+    result byte-for-byte what memcond emits. Documentation that drifts from the
+    code is how every stale number in this repo's history started, and this one
+    is the first thing a reader sees of the transform."""
+    readme = (REPO / "README.md").read_text()
+    for name in ("identity", "all"):
+        rendered = render_context(
+            condition(build(name), GYM, GYM_Q, QDATE, CostLedger()))
+        assert f"```\n{rendered}\n```" in readme, (
+            f"README's {name!r} example no longer matches memcond's output")
