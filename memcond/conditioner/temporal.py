@@ -1,27 +1,39 @@
 """Do the date arithmetic for the model, deterministically, before it reads.
 
 The failures this targets are all cases where the evidence was retrieved and the
-model simply could not compute over it. From memllm's stored `oracle` arm --
+model still could not compute over it. From memllm's stored `oracle` arm --
 where by construction every evidence turn is in the prompt:
 
-    1.5B  "How many months have passed since I last visited a museum?"
-          gold 5, predicted "One month"
-    1.5B  "Which event happened first, the coffee maker purchase or the stand
-           mixer malfunction?"   -- both dates present, ordered wrong
-    7B    "How many weeks had I been taking sculpting classes when I bought my
-           own tools?"
-          predicted "You started on 2023/01/12 and got tools on 2023/03/04.
-          This means you have been taking classes fo"   <- cut off mid-subtraction
+    1.5B  "How many months have passed since I last visited a museum with a
+           friend?"
+          gold 5, predicted "One month" -- one month back is a February visit
+          with a parent; the visit with a friend is five months back
+    1.5B  "Which event happened first, the purchase of the coffee maker or the
+           malfunction of the stand mixer?"
+          -- both dates present, ordered wrong
+    14B   "How many weeks passed between ... the Farmers' Market ...?"
+          gold 3, predicted "The last time you sold homemade baked goods was on
+          2023/02/26, and you participated in the Spring Fling Market on
+          2023/03/21. There are 4 weeks between these two dates."
 
-That last one is the tell. The model is doing the arithmetic *in its answer*,
-which costs output tokens and, at `max_new_tokens=64`, does not always finish.
-memllm measured `temporal-reasoning` lift at +0.080 for 1.5B and 3B against
-+0.440 for 14B from identical retrieval -- the small models hold the dates and
-cannot subtract them.
+Two distinct failures, and the transform addresses both. The first two are
+anchoring: ten dated units arrive in retrieval-rank order with nothing to
+distinguish them, and the model computes from the wrong one. Sorting them and
+labelling each with its distance from today is exactly the missing information.
+The third is arithmetic proper -- both correct dates quoted off the page, and
+the subtraction over them still wrong, on the largest model memllm ran.
 
 Subtraction is free and exact in Python. Doing it at render time turns "compare
 two dates" into "read a number", which is the operation small models are good
-at. Costs roughly a dozen tokens per unit, which the ledger reports honestly.
+at. Costs roughly a dozen tokens per unit, which the ledger reports honestly. It
+also stops the model spending output tokens deriving the number in prose: at
+memllm's default `max_new_tokens=64` those derivations were frequently cut off
+mid-sentence, which is why the arms here run at 256.
+
+The size gradient is the reason to expect this to matter most on small models.
+memllm's `temporal-reasoning` lift over its best control is +0.040 at 1.5B and
++0.080 at 3B, against +0.480 at 14B, from identical retrieval -- the small
+models hold the dates and cannot use them.
 """
 
 from __future__ import annotations

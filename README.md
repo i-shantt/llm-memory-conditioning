@@ -112,18 +112,28 @@ and touches only the k units a query actually retrieved.
 | `temporal` | sorts chronologically, labels each unit with days/weeks/months before the question date | temporal-reasoning |
 | `safe` / `all` | compositions | — |
 
-`temporal` exists because the models demonstrably cannot do the arithmetic. From
-memllm's `oracle` arm, where every evidence turn is in the prompt by
-construction:
+`temporal` exists because the models demonstrably mishandle dated context, in
+two separate ways. From memllm's `oracle` arm, where every evidence turn is in
+the prompt by construction:
 
 ```
-1.5B  "How many months since I last visited a museum?"   gold 5, said "One month"
-7B    "How many weeks had I been taking sculpting classes...?"
-      "You started on 2023/01/12 and got tools on 2023/03/04. This means you
-       have been taking classes fo"          <- cut off mid-subtraction
+1.5B  "How many months have passed since I last visited a museum with a friend?"
+      gold 5, said "One month" -- one month back is the February visit, which
+      was with a parent; the visit with a friend is the October one, five back
+
+14B   "How many weeks passed between ... the Farmers' Market ... ?"   gold 3
+      "The last time you sold homemade baked goods was on 2023/02/26, and you
+       participated in the Spring Fling Market on 2023/03/21. There are 4 weeks
+       between these two dates."
 ```
 
-Subtraction is free and exact in Python. Doing it at render time turns "compare
+The second is the cleaner failure: both evidence dates are quoted correctly off
+the page and the subtraction over them is still wrong, on the largest model
+tested. The first is the more common one — ten undifferentiated dated units, and
+the model computes from whichever one it latched onto.
+
+Sorting addresses the first, and pre-computed distances address the second.
+Subtraction is free and exact in Python; doing it at render time turns "compare
 two dates" into "read a number".
 
 ## The CPU gate
