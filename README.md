@@ -390,20 +390,34 @@ comparison the literature does not report.
 ```
 memcond/conditioner/   base.py, supersede.py, temporal.py — the transforms
 memcond/eval/          mechanical.py — the CPU gate's metrics
-scripts/                run_mechanical_gate.py
-tests/                  48 tests, no model, no network, no benchmark download
+scripts/               run_mechanical_gate.py  — the CPU gate
+                       run_conditioned_eval.py — one GPU arm
+                       compare_conditioners.py — paired stats against identity
+                       test_sort_router.py     — the router negative result
+results/               every arm as JSON, per-question predictions included
+tests/                 62 tests, no model and no network; the five that drive
+                       the eval script end to end skip without the benchmark
 ```
 
 ## Running it
 
-Needs a [memllm](../memllm) checkout beside this one, or `MEMLLM_PATH` set. It
-supplies the cost ledger, the audited grader and the lift statistics — reusing
-them is deliberate, because a number from this repo is only worth something if
-it is measured the way memllm's were.
+Needs a [memllm](https://github.com/i-shantt/memllm) checkout beside this one,
+or `MEMLLM_PATH` set. It supplies the cost ledger, the audited grader and the
+lift statistics — reusing them is deliberate, because a number from this repo is
+only worth something if it is measured the way memllm's were.
 
 ```bash
+pip install -r requirements.txt -r ../memllm/requirements.txt
 python -m pytest tests/ -q
 python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
+```
+
+Every table above except the GPU accuracy runs themselves reproduces offline
+from the banked arms, in seconds and without the benchmark:
+
+```bash
+python scripts/compare_conditioners.py   # the Results table and the per-type splits
+python scripts/test_sort_router.py       # the router negative result
 ```
 
 ## Honest limits

@@ -154,8 +154,9 @@ def test_supersede_drop_removes_the_superseded_mention_only():
 
 def test_supersede_drop_can_delete_evidence_which_is_the_case_against_it():
     """LongMemEval asks past-directed questions, and `drop` answers them by
-    deleting the answer. The CPU gate measured evidence survival at 0.800 on
-    knowledge-update. This is the argument against write-time deletion."""
+    deleting the answer. Over all 500 questions the CPU gate measured evidence
+    survival at 0.781 on knowledge-update -- it deletes 22% of the evidence.
+    This is the argument against write-time deletion."""
     out = condition(build("supersede:drop"), GYM, GYM_Q, QDATE, CostLedger())
     kept = {r.unit_id for r in out}
     assert any(u.is_evidence and u.unit_id not in kept for u in GYM)
