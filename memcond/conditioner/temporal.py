@@ -19,8 +19,9 @@ where by construction every evidence turn is in the prompt:
           2023/03/21. There are 4 weeks between these two dates."
 
 Two distinct failures, and the transform addresses both. The first two are
-anchoring: ten dated units arrive in retrieval-rank order with nothing to
-distinguish them, and the model computes from the wrong one. Sorting them and
+anchoring: ten dated units arrive in an order that says nothing about time --
+evidence first and then filler in this `oracle` arm, retrieval rank in the arms
+this repo runs -- and the model computes from the wrong one. Sorting them and
 labelling each with its distance from today is exactly the missing information.
 The third is arithmetic proper -- both correct dates quoted off the page, and
 the subtraction over them still wrong, on the largest model memllm ran.
