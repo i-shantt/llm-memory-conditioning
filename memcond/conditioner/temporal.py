@@ -11,7 +11,9 @@ where by construction every evidence turn is in the prompt:
     1.5B  "Which event happened first, the purchase of the coffee maker or the
            malfunction of the stand mixer?"
           -- both dates present, ordered wrong
-    14B   "How many weeks passed between ... the Farmers' Market ...?"
+    14B   "How many weeks passed between the time I sold homemade baked goods
+           at the Farmers' Market for the last time and the time I
+           participated in the Spring Fling Market?"
           gold 3, predicted "The last time you sold homemade baked goods was on
           2023/02/26, and you participated in the Spring Fling Market on
           2023/03/21. There are 4 weeks between these two dates."

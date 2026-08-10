@@ -123,16 +123,18 @@ the prompt by construction:
       gold 5, said "One month" -- one month back is the February visit, which
       was with a parent; the visit with a friend is the October one, five back
 
-14B   "How many weeks passed between ... the Farmers' Market ... ?"   gold 3
+14B   "How many weeks passed between the time I sold homemade baked goods at
+       the Farmers' Market for the last time and the time I participated in
+       the Spring Fling Market?"                                  gold 3 weeks
       "The last time you sold homemade baked goods was on 2023/02/26, and you
        participated in the Spring Fling Market on 2023/03/21. There are 4 weeks
        between these two dates."
 ```
 
 The second is the cleaner failure: both evidence dates are quoted correctly off
-the page and the subtraction over them is still wrong, on the largest model
-tested. The first is the more common one — ten undifferentiated dated units, and
-the model computes from whichever one it latched onto.
+the page and the subtraction over them is still wrong — on 14B, the largest
+model memllm ran. The first is the more common one: ten undifferentiated dated
+units, and the model computes from whichever one it latched onto.
 
 Sorting addresses the first, and pre-computed distances address the second.
 Subtraction is free and exact in Python; doing it at render time turns "compare
