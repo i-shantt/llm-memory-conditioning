@@ -16,7 +16,7 @@ the right piece?*
 
 I measured it. The search is essentially solved: on the standard benchmark the
 right piece is retrieved almost every time. **The model then answers wrong
-anyway — on 44 of 91 test questions the answer was already in front of it.**
+anyway — on 41 of 91 test questions the answer was already in front of it.**
 
 Asked *"What BBQ sauce am I currently obsessed with?"*, a model answered **Sweet
 Baby Ray's**. Both the old preference and the new one were in its prompt. It
@@ -68,14 +68,14 @@ retrieval, k=10, n=100):
 
 | question type | evidence retrieved, answer **wrong** | accuracy given evidence present |
 |---|---|---|
-| knowledge-update | 9 / 16 | 0.438 |
+| knowledge-update | 8 / 16 | 0.500 |
 | temporal-reasoning | 13 / 21 | 0.381 |
 | multi-session | 15 / 22 | 0.318 |
-| single-session-assistant | 4 / 10 | 0.600 |
-| single-session-user | 3 / 12 | 0.750 |
+| single-session-assistant | 3 / 10 | 0.700 |
+| single-session-user | 2 / 12 | 0.833 |
 
 Hybrid retrieval scores `any_hit@10 = 1.000` on the `knowledge-update` slice —
-the evidence is in the prompt every single time — and a 7B model still gets 9 of
+the evidence is in the prompt every single time — and a 7B model still gets 8 of
 those 16 wrong. **Recall is not the binding constraint.** What the model does
 with the retrieved text is.
 
@@ -437,4 +437,4 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
 - **`is_evidence` is LongMemEval's own labelling** and inherits whatever errors
   it contains.
 - **Conditioning cannot fix a retrieval miss.** It only changes the presentation
-  of what was already retrieved, so its ceiling is the 44-of-91 slice above.
+  of what was already retrieved, so its ceiling is the 41-of-91 slice above.

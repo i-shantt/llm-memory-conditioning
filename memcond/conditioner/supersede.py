@@ -13,8 +13,8 @@ The failure this targets, from memllm's stored predictions (7B, hybrid, k=10):
 Both answers are quoted correctly from the retrieved context. They quote the
 *superseded* mention. Retrieval did not fail -- on LongMemEval's
 `knowledge-update` slice hybrid retrieval scores `any_hit@10 = 1.000`, and the
-7B model still answers 9 of 16 wrong. The `oracle` arm, which differs only by
-dropping the non-evidence units, scores 0.688 on the same questions.
+7B model still answers 8 of 16 wrong. The `oracle` arm, which differs only by
+dropping the non-evidence units, scores 0.750 on the same questions.
 
 The literature calls this the current-state adjudication gap (STALE,
 arXiv 2605.06527). Its remedy, CUPMem, runs an LLM adjudicator on every write.
