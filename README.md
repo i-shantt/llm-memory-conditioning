@@ -1,5 +1,8 @@
 # llm-memory-conditioning
 
+[![tests](https://github.com/i-shantt/llm-memory-conditioning/actions/workflows/tests.yml/badge.svg)](https://github.com/i-shantt/llm-memory-conditioning/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Research code and measurements for one question:
 
 > When a search system has already put the right text into a language model's
@@ -652,3 +655,8 @@ they were produced from.
   it contains.
 - **Conditioning cannot fix a retrieval miss.** It only changes the presentation
   of what was already retrieved, so its ceiling is the 41-of-91 slice above.
+
+## License
+
+[MIT](LICENSE). LongMemEval is a separate dataset under its own terms and is
+not redistributed here.

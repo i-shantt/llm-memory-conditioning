@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # memcond resolves memllm as a sibling directory, so the two checkouts
+      # have to sit next to each other under the workspace root.
+      - uses: actions/checkout@v4
+        with:
+          path: llm-memory-conditioning
+      - uses: actions/checkout@v4
+        with:
+          repository: i-shantt/memllm
+          path: memllm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: llm-memory-conditioning/requirements.txt
+
+      - run: pip install -r llm-memory-conditioning/requirements.txt
+
+      - name: Tests
+        working-directory: llm-memory-conditioning
+        # The five tests that drive the eval script end to end skip here:
+        # LongMemEval is a 265 MB download and CI does not need it.
+        run: python -m pytest tests/ -q
+
+      # The README claims every table except the GPU arms reproduces from the
+      # stored results. This checks that claim on every push, and fails if the
+      # regenerated comparison differs from the committed one by a single byte.
+      - name: Offline analysis reproduces the committed tables
+        working-directory: llm-memory-conditioning
+        run: |
+          python scripts/compare_conditioners.py
+          python scripts/test_sort_router.py
+          git diff --exit-code -- results/
+
+      # The first command a reader runs against a clean clone is the one most
+      # likely to fail, so its failure mode is part of the contract.
+      - name: A missing benchmark produces instructions, not a traceback
+        working-directory: llm-memory-conditioning
+        run: |
+          if python scripts/run_mechanical_gate.py --data /nonexistent/longmemeval_s 2>err.txt; then
+            echo "expected a non-zero exit"; exit 1
+          fi
+          grep -q "hf_hub_download" err.txt
+          if grep -q "Traceback" err.txt; then echo "leaked a traceback"; exit 1; fi
