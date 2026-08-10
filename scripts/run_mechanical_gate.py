@@ -55,7 +55,7 @@ def main() -> None:
     args = ap.parse_args()
 
     data = args.data or str(memcond._deps.memllm_root() / "data/raw/longmemeval_s")
-    examples = load_examples(data)
+    examples = load_examples(str(memcond._deps.require_dataset(data)))
     if args.limit and args.limit < len(examples):
         examples = stratified_subset(examples, args.limit, seed=0)
     print(f"{len(examples)} questions from {data}", flush=True)

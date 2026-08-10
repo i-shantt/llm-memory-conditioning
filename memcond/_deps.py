@@ -40,4 +40,29 @@ def ensure_on_path() -> Path:
     return root
 
 
+def require_dataset(path: str | Path) -> Path:
+    """Return `path` if the benchmark split is there, or exit explaining how.
+
+    LongMemEval is a 265 MB download and is deliberately not vendored, so the
+    first command a reader runs is also the first one that can fail on a clean
+    clone. `load_examples` would raise a bare FileNotFoundError, which says
+    nothing about where the file comes from.
+    """
+    p = Path(path)
+    if p.is_file():
+        return p
+    raise SystemExit(
+        f"LongMemEval is not downloaded -- no file at {p}\n\n"
+        f"It is not vendored in this repo. Fetch the split into the memllm\n"
+        f"checkout with:\n\n"
+        f"    pip install huggingface_hub\n"
+        f"    python -c \"from huggingface_hub import hf_hub_download; \\\n"
+        f"hf_hub_download('xiaowu0162/longmemeval', '{p.name}', \\\n"
+        f"repo_type='dataset', local_dir='{p.parent}')\"\n\n"
+        f"Nothing in tests/ needs it, and neither do\n"
+        f"scripts/compare_conditioners.py or scripts/test_sort_router.py --\n"
+        f"those reproduce this repo's tables from the stored arms alone."
+    )
+
+
 ensure_on_path()

@@ -558,8 +558,10 @@ scripts/               run_mechanical_gate.py  — the CPU gate
                        test_sort_router.py     — the router negative result
 results/               every arm as JSON, per-question predictions included
 kaggle/                the notebook cells the GPU arms were run from
-tests/                 63 tests, no model and no network; the five that drive
+tests/                 67 tests, no model and no network; the five that drive
                        the eval script end to end skip without the benchmark
+.github/workflows/     CI: the suite, plus a check that the committed tables
+                       still regenerate byte-identically
 ```
 
 ## Running it
@@ -569,21 +571,40 @@ or `MEMLLM_PATH` set. It supplies the cost ledger, the audited grader and the
 lift statistics.
 
 ```bash
-pip install -r requirements.txt -r ../memllm/requirements.txt
-python -m pytest tests/ -q
-python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
+git clone https://github.com/i-shantt/memllm.git
+git clone https://github.com/i-shantt/llm-memory-conditioning.git
+cd llm-memory-conditioning
+
+pip install -r requirements.txt   # four small packages: no torch, no GPU
+python -m pytest tests/ -q        # 62 pass, 5 skip without the benchmark
 ```
 
-Every table above except the accuracy runs themselves reproduces offline from
-the stored arms, in seconds, with no GPU and no benchmark download:
+**The analysis needs nothing beyond that.** Every table above except the
+accuracy runs themselves comes back from the stored arms in seconds:
 
 ```bash
 python scripts/compare_conditioners.py   # the Results table and the per-type splits
 python scripts/test_sort_router.py       # the router negative result
 ```
 
-Reproducing the accuracy arms needs a GPU and the benchmark; `kaggle/` has the
-notebook cells they were run from.
+`results/conditioner_comparison.json` regenerates byte-identically, and CI
+re-checks that on every push.
+
+**The CPU gate needs the benchmark**, which is a 265 MB download and is not
+vendored here:
+
+```bash
+pip install huggingface_hub
+python -c "from huggingface_hub import hf_hub_download; \
+hf_hub_download('xiaowu0162/longmemeval', 'longmemeval_s', \
+repo_type='dataset', local_dir='../memllm/data/raw')"
+
+python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
+```
+
+**Re-running the accuracy arms needs a GPU** on top of the benchmark, plus
+memllm's own requirements and a local Ollama. `kaggle/` has the notebook cells
+they were produced from.
 
 ## Limits
 

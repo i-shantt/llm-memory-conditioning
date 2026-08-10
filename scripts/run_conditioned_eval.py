@@ -65,7 +65,9 @@ def main() -> None:
     ap.add_argument("--out-dir", default=str(REPO / "results"))
     args = ap.parse_args()
 
-    examples = stratified_subset(load_examples(args.data), args.limit, seed=args.seed)
+    examples = stratified_subset(
+        load_examples(str(memcond._deps.require_dataset(args.data))),
+        args.limit, seed=args.seed)
     cache = EmbeddingCache(enabled=True)
     retriever = build_retriever(args.retriever, args, cache=cache)
     if hasattr(retriever, "warmup"):
