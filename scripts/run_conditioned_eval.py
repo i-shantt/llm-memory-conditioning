@@ -51,9 +51,12 @@ def main() -> None:
     ap.add_argument("--device", default="auto")
     ap.add_argument("--recency-weight", type=float, default=0.0)
     ap.add_argument("--answer-backend", default="ollama:qwen2.5:7b-instruct")
-    # 256, not memllm's 64. Reading real predictions showed 7B answers cut off
+    # 256, not memllm's default of 64. At 64, 7B answers were cut off
     # mid-subtraction on temporal questions ("...have been taking classes fo"),
     # which understates exactly the slice a temporal conditioner targets.
+    # memllm has since re-run its own arms at 256, so that truncation is no
+    # longer visible in its stored predictions -- but the cap still has to be
+    # set here, and both arms of every pair are run at the same one.
     ap.add_argument("--max-new-tokens", type=int, default=256)
     ap.add_argument("--num-ctx", type=int, default=8192)
     ap.add_argument("--gen-timeout", type=int, default=300)

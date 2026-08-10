@@ -140,7 +140,7 @@ assert r.returncode == 0
 ```python
 import subprocess, os, time, json
 
-# 256, not memllm's 64. Reading stored predictions showed 7B answers cut off
+# 256, not memllm's default of 64. At 64, 7B answers were cut off
 # mid-subtraction on temporal questions ("...have been taking classes fo"),
 # which understates precisely the slice the temporal conditioner targets. The
 # baseline arm is re-run at the same cap, so the comparison stays paired.
