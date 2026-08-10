@@ -28,23 +28,25 @@ You still can't answer the question.
 
 **This repo reformats what the search found, before the model reads it** —
 sorting by date, labelling how long ago each thing happened, doing the date
-arithmetic in advance. It is pure code: **no AI calls, no training, no extra
-cost**, running only when a question is actually asked. Competing approaches run
-an expensive AI pass over your whole history to maintain it.
+arithmetic in advance. It is pure code: **no AI calls, no training, and 1–7%
+more read tokens**, running only when a question is actually asked. Competing
+approaches run an expensive AI pass over your whole history to maintain it.
 
 ```mermaid
 flowchart LR
     A[Conversation<br/>archive] --> B[Search]
-    B --> C[**Reformat**<br/>sort by date · label age<br/>do the arithmetic]
+    B --> C[Reformat<br/>sort by date · label age<br/>do the arithmetic]
     C --> D[Model]
     D --> E[Answer]
     style C fill:#2d6a4f,color:#fff
 ```
 
-**What happened.** On small Qwen models it worked: **+13 percentage points**
-(p = 0.002), enough that a 1.5B model matched a 7B one without it. **On Gemma2
-and Llama3.2 it vanished** — and the interesting part is that the mechanism is
-identified precisely enough to say why. Sorting by date wins the questions where
+**What happened.** On Qwen2.5 1.5B it worked: **+13 percentage points**
+(p = 0.002), closing all but one question of the gap to an unconditioned 7B. The
+effect decays cleanly as the model grows — +9 points at 3B, +4 at 7B, neither
+significant on its own. **On Gemma2 it is a null, and on Llama3.2 it trends
+negative** — and the interesting part is that the mechanism is identified
+precisely enough to say why. Sorting by date wins the questions where
 "what's most recent?" is the answer and loses the ones where the search engine
 had already ranked the answer first. On Qwen that trade pays; elsewhere it
 cancels.
@@ -425,11 +427,12 @@ python scripts/run_mechanical_gate.py --limit 100 --retriever bm25
   That is post-hoc, and post-hoc hypotheses find patterns in noise. It was
   pre-registered only in the weak sense that the flag already existed in the
   code before the transfer run.
-- **The cross-model claim is the fragile one.** "1.5B conditioned matches 7B" is
-  a comparison memllm explicitly warns against, because containment rewards
-  length. It survives a token-F1 check, but token-F1 differences here are small
-  in absolute terms (0.1821 vs 0.1759) and the arms were not designed for a
-  cross-model test.
+- **The cross-model comparison is the fragile one.** Putting 1.5B conditioned
+  next to 7B unconditioned is a comparison memllm explicitly warns against,
+  because containment rewards length. On accuracy the conditioned 1.5B is still
+  one question short of the larger baseline (0.4066 vs 0.4176); it leads only on
+  token-F1 (0.1821 vs 0.1759), and that difference is small in absolute terms.
+  The arms were not designed for a cross-model test.
 - **Away from knowledge-update the rule is noisy.** Across all 500 questions
   HARM is 0.209–0.312 — it fires where there is no supersession to find. Whether
   that costs accuracy is exactly what the GPU run is for, and it is the reason
