@@ -41,6 +41,7 @@ jobs:
         working-directory: llm-memory-conditioning
         run: |
           python scripts/compare_conditioners.py
+          python scripts/replication_check.py
           python scripts/cross_model_check.py
           python scripts/test_sort_router.py
           git diff --exit-code -- results/

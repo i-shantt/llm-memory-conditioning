@@ -12,8 +12,14 @@ Research code and measurements for one question:
 The code is a small Python library (`memcond`) that rewrites retrieved
 conversation history before it reaches the model: it sorts the pieces into date
 order, labels each one with how long ago it happened, and does the date
-arithmetic in advance. The measurements are 21 full evaluation runs across five
+arithmetic in advance. The measurements are 23 full evaluation runs across five
 open models, with every prediction saved in `results/`.
+
+**The result is a null.** On the full benchmark the transform changes accuracy
+by +0.7 points (p = 0.79). An earlier version of this README reported +13.2
+points from a 100-question sample; re-running all 500 questions is what showed
+that up, and [that failure is written up here](#the-headline-that-did-not-replicate)
+rather than quietly corrected.
 
 This is a research repo, not a package. Nothing here is on PyPI, and it depends
 on a sibling checkout of [memllm](https://github.com/i-shantt/memllm) for its
@@ -21,41 +27,61 @@ grader and statistics.
 
 ## Summary of findings
 
-**The problem is real.** On the benchmark used here, retrieval finds the right
-text and the model still answers wrong: on **30 of 91** test questions *every*
-piece of evidence the benchmark labels as necessary was in the prompt and the
-model got it wrong anyway.
+**The premise holds.** Retrieval finds the right text and the model still
+answers wrong: on **30 of 91** test questions *every* piece of evidence the
+benchmark labels as necessary was in the prompt and the model got it wrong
+anyway. There is real accuracy sitting in how the prompt is laid out.
 
-**The fix works on one model family, and the effect shrinks with size.**
+**The transform does not capture it.** On the full 500-question benchmark,
+rewriting the retrieved turns changes Qwen2.5-1.5B's accuracy by **+0.7 points
+(p = 0.79)** — 30 questions fixed, 27 broken. That is the headline number and it
+is a null.
 
-| model | accuracy change from the full transform |
-|---|---|
-| Qwen2.5 1.5B | **+13.2 points**, p = 0.002 |
-| Qwen2.5 3B | +8.8 points, p = 0.057 |
-| Qwen2.5 7B | +4.4 points, p = 0.424 |
-| Gemma2 2B | −1.1 points, p = 1.000 |
-| Llama3.2 3B | −5.5 points, p = 0.180 |
+**A 13-point result on a 100-question sample did not survive the full
+benchmark.** This repo originally reported +13.2 points at n=91, p = 0.002.
+Re-running all 500 questions reduced it to +0.7. The original measurement
+reproduces exactly on those same 91 questions — the paired test was valid and the
+code was right. The *sample* was unrepresentative: the seed-0 draw happened to
+select questions where the baseline scored 0.275 against 0.409 on the rest of
+the benchmark, and almost the whole gap was the baseline's bad luck. A paired
+test controls for question difficulty within each pair; it cannot tell you your
+sample of questions is unrepresentative of where the effect lives.
+[What happened, in detail](#the-headline-that-did-not-replicate).
 
-Only the 1.5B result is statistically significant. **So the accurate headline is
-narrow: this is a Qwen2.5 result, not a small-model result.**
+**The mechanism is real, measured at scale, and explains the null.** The
+transform re-sorts retrieved turns into date order. That wins the question types
+where recency is the answer and loses the ones where search rank already put the
+answer first — and across a whole benchmark the two cancel:
 
-**The mechanism is identified, which is what explains both the gain and its
-absence.** The transform does two things — it relabels each piece with its age, and it re-sorts
-the pieces into date order instead of leaving them in search-ranking order.
-Running those separately shows the *sort* is what moves the numbers. It wins the
-questions where "what is most recent?" is the answer, and loses the questions
-where the search engine had already ranked the answer first. On Qwen that trade
-comes out positive; on Gemma2 and Llama3.2 the two halves cancel.
+| question type | n | Δ |
+|---|---|---|
+| knowledge-update | 76 | **+0.053** |
+| temporal-reasoning | 124 | **+0.048** |
+| multi-session | 126 | −0.032 |
+| single-session-user | 70 | −0.043 |
+| single-session-assistant | 50 | +0.000 |
+| **overall** | **446** | **+0.007** |
 
-**The original idea did not work.** This project was built around explicitly
-tagging superseded facts `OUTDATED`. Those tags are correct 96.4% of the time
-and moved accuracy by **−1.1 points** (p = 1.000) — one question in 91, in the
-wrong direction. The models ignored them.
+This was predicted from n=14–16 slices before the full run, and it held at
+n=70–126. It also explains the two "failed transfer" models more simply than
+model family does: Gemma2 and Llama3.2 were showing the same cancellation all
+along.
 
-Everything below is the evidence, including the measurements that contradicted
-what I expected and the bugs found along the way. Jump to [Results](#results) ·
-[Why it does not transfer](#why-it-does-not-transfer) · [Limits](#limits) ·
-[Running it](#running-it).
+**Routing would not save it either.** An *oracle* router that applies the
+transform only to the two types it helps — using the benchmark's own labels,
+so not deployable — reaches +2.2 points (p = 0.12). That is the ceiling on this
+idea, and it is not significant.
+
+**The original idea did not work at all.** This project was built around
+explicitly tagging superseded facts `OUTDATED`. Those tags are correct 96.4% of
+the time and moved accuracy by **−1.1 points** (p = 1.000). The models ignored
+them.
+
+So: a negative result with an identified mechanism, a measured ceiling, and a
+worked example of a significant finding dissolving under more data. Everything
+below is the evidence. Jump to [Results](#results) ·
+[The headline that did not replicate](#the-headline-that-did-not-replicate) ·
+[Limits](#limits) · [Running it](#running-it).
 
 ---
 
@@ -103,21 +129,28 @@ the information is not present.
 | **evidence** | a unit that LongMemEval itself labels `has_answer` — it contains what is needed to answer |
 | **conditioner** | the transform this repo adds, applied to the k retrieved units after retrieval and before the prompt is assembled |
 | **`identity`** | the control conditioner. Renders units exactly as memllm already does, byte for byte. Every other run is compared against it |
-| **arm** | one complete run: one model × one conditioner × 100 questions, saved to `results/` with every prediction kept |
+| **arm** | one complete run: one model × one conditioner × a fixed question set, saved to `results/` with every prediction kept |
 | **gold** | the benchmark's reference answer |
 | **read tokens** | tokens spent answering one question, prompt plus completion. The cost measure used throughout |
 
 ### How the accuracy runs are set up
 
-Every arm is a stratified 100-question sample of LongMemEval (seed 0). **91 of
-the 100 are gradable** — the other 9 have free-form reference answers with no
-checkable surface form, and are excluded rather than counted wrong. Grading is
-deterministic string matching from memllm, whose published audit over 3,166
-cases reports a false-accept rate of 0.0.
+Most arms are a stratified 100-question sample of LongMemEval (seed 0), of which
+**91 are gradable** — the other 9 have free-form reference answers with no
+checkable surface form, and are excluded rather than counted wrong. Two arms
+(Qwen2.5-1.5B `identity` and `all`) were re-run on all 500 questions, 446 of them
+gradable. Grading is deterministic string matching from memllm, whose published
+audit over 3,166 cases reports a false-accept rate of 0.0.
+
+**The 100-question sample turned out to matter enormously**, which is the main
+finding of the repo — see
+[the headline that did not replicate](#the-headline-that-did-not-replicate).
 
 A conditioner is always compared against the *same model's own* `identity` arm
-on the *same 91 question ids*: same retriever, same k, same model, same seed,
-same prompt template. The only difference between the two runs is how the
+over the *same question ids*: same retriever, same k, same model, same seed,
+same prompt template. Arms run at different sample sizes are separate
+experiments and are never paired against each other; `compare_conditioners.py`
+enforces that on the ids rather than trusting the filenames. The only difference between the two runs is how the
 retrieved units were written into the prompt. Significance is exact McNemar on
 the questions where the two arms disagree, plus a paired bootstrap confidence
 interval.
@@ -381,49 +414,113 @@ behaviour, and the metric was penalising it.
 
 ## Results
 
-Qwen2.5, Gemma2 and Llama3.2 run locally through Ollama. BM25 at k=10, 100
-questions, `max_new_tokens=256`, deterministic grading, paired against each
-model's own `identity` arm as described in [Background](#how-the-accuracy-runs-are-set-up).
+Qwen2.5, Gemma2 and Llama3.2 run locally through Ollama. BM25 at k=10,
+`max_new_tokens=256`, deterministic grading, paired against each model's own
+`identity` arm as described in [Background](#how-the-accuracy-runs-are-set-up).
+
+**The full benchmark, all 500 questions (446 gradable).** This is the result the
+repo stands on:
+
+| model | `identity` baseline | `all` Δ | p |
+|---|---|---|---|
+| Qwen2.5 1.5B | 0.3834 | **+0.0067** | 0.791 |
+
+**The 100-question sample, 91 gradable.** Every other model was run at this
+scale, and the row above is the reason to read all of them as provisional:
 
 | model | `identity` baseline | `all` Δ | `temporal` Δ |
 |---|---|---|---|
-| Qwen2.5 1.5B | 0.2747 | **+0.1319** (p=0.002) | **+0.1099** (p=0.006) |
+| Qwen2.5 1.5B | 0.2747 | +0.1319 (p=0.002) | +0.1099 (p=0.006) |
 | Qwen2.5 3B | 0.3077 | +0.0879 (p=0.057) | +0.0549 (p=0.302) |
 | Qwen2.5 7B | 0.4176 | +0.0440 (p=0.424) | +0.0110 (p=1.000) |
 | Gemma2 2B | 0.3297 | −0.0110 (p=1.000) | +0.0110 (p=1.000) |
 | Llama3.2 3B | 0.4286 | −0.0549 (p=0.180) | −0.0659 (p=0.109) |
 
-**The bottom two rows are the important ones.** They are the two non-Qwen
-families, and they are where the headline stops being true. The next section is
-about them.
+The 1.5B row here is the one that was re-run in full and did not hold. **Treat
+the other four the same way**: they are 91-question estimates with a confidence
+interval of roughly ±0.08, and the one that was checked at scale moved by 12
+points. None of them has been replicated.
 
-`temporal:norank` — the same labels with the date sorting switched off — was run
-on those two models as well: Gemma2 −0.0110, Llama3.2 +0.0110. Both null, and
-[why that matters](#what-survives-the-sort-is-the-active-ingredient) is the most
-useful result in this repo.
+## The headline that did not replicate
 
-## Why it does not transfer
+The first version of this README led with **+13.2 points, p = 0.002** on
+Qwen2.5-1.5B. Re-running the same two arms over all 500 LongMemEval questions
+instead of a 100-question sample:
 
-Within Qwen2.5 the effect is large at 1.5B and decays cleanly with model size —
-12, then 8, then 4 net questions fixed out of 91. That pattern looked like a
-capacity story: the transform does ordering and arithmetic that a small model
-cannot do for itself, so the smaller the model, the more it gains.
+| question set | identity → `all` | Δ | fixed / broke | p |
+|---|---|---|---|---|
+| **all 446 gradable** | 0.3834 → 0.3901 | **+0.0067** | 30 / 27 | **0.791** |
+| the original 91 | 0.2857 → 0.4066 | +0.1209 | 13 / 2 | 0.0074 |
+| the 355 never sampled | 0.4085 → 0.3859 | −0.0225 | 17 / 25 | 0.280 |
 
-**On Gemma2 2B and Llama3.2 3B, the effect is gone.** Gemma2 is a flat null.
-Llama3.2 trends *negative* on both arms, and `temporal` alone at −0.0659
-(p = 0.109) is closer to a real regression than to nothing.
+**The original measurement was not a mistake.** Row two re-measures those same 91
+questions inside the 500-question run and reproduces them: 0.4066 identical,
++12.1 points, p = 0.007. The arithmetic, the grader and the paired test were all
+correct.
 
-So the claim has to be narrower than the Qwen gradient suggests: **this is a
-Qwen2.5 result, not a small-model result.** A dose-response curve inside one
-model family is not evidence about models in general. Running two other families
-is what turned that from an assumption into a finding.
+**The sample was unrepresentative, and specifically the baseline was.** On the
+sampled 91 the `identity` arm scores 0.2857; on the other 355 it scores 0.4085.
+The conditioned arm barely moves between the two (0.4066 against 0.3859). Nearly
+the entire 12-point gap was the *baseline* having a bad draw, not the transform
+having a good one.
 
-### What survives: the sort is the active ingredient
+**This is the failure mode a paired test cannot catch.** McNemar controls for
+question difficulty *within* a pair — same question, same model, same retrieval,
+one difference. What it cannot tell you is whether your sample of questions is
+representative of the population where the effect lives. p = 0.002 was a correct
+statement about 91 questions and a misleading one about the benchmark.
 
-The per-type breakdown says more than the totals do, because the conditioner
-does two things at once: it labels each unit with its age, and it re-sorts the
-units by date instead of by search rank. `temporal:norank` runs the labelling
-with the sorting switched off, which separates the two.
+The practical lesson, which cost one GPU run to learn: **a significance test on a
+subsample answers a smaller question than the one being asked.** With 100
+questions and a ±0.08 interval, a 13-point effect is well inside the range that
+sampling alone can manufacture.
+
+## Why the effect cancels
+
+The transform re-sorts retrieved turns into date order instead of leaving them in
+search-rank order. That is a trade, not an improvement, and at n=446 the two
+sides of it are visible:
+
+| question type | n | identity | `all` | Δ |
+|---|---|---|---|---|
+| knowledge-update | 76 | 0.487 | 0.539 | **+0.053** |
+| temporal-reasoning | 124 | 0.226 | 0.274 | **+0.048** |
+| single-session-assistant | 50 | 0.580 | 0.580 | +0.000 |
+| multi-session | 126 | 0.183 | 0.151 | −0.032 |
+| single-session-user | 70 | 0.771 | 0.729 | −0.043 |
+
+Grouped by what the mechanism predicts:
+
+| | n | Δ | p |
+|---|---|---|---|
+| types the sort should help (`knowledge-update` + `temporal-reasoning`) | 200 | +0.050 | 0.121 |
+| types the sort should hurt (everything else) | 246 | −0.029 | 0.210 |
+
+`single-session-user` is a single turn that BM25 puts first — re-ordering buries
+it. `knowledge-update` is a fact that was later revised — ordering by date is
+exactly what surfaces the revision. Neither group reaches significance on its
+own, but they point in the directions predicted, and their sum is the null.
+
+**This prediction is older than the data that confirms it.** It was derived from
+`temporal:norank` on n=14–16 slices of two models, and the README hedged that it
+rested on about a dozen questions changing hands. At n=70–126 the same pattern
+appears. That makes it the one claim here that got *stronger* with more data.
+
+It also explains the two models that were written up as a failure to transfer.
+Gemma2 2B and Llama3.2 3B were never a family-specific exception — they were
+showing the cancellation at n=100 while Qwen happened to draw a sample that hid
+it. One mechanism now covers every arm in the repo.
+
+### Where that prediction came from
+
+The section above confirms the trade at n=446. This is the smaller, earlier
+experiment that predicted it — worth keeping because it was run first, and
+because it is the reason the full-scale result was interpretable rather than
+just disappointing.
+
+The conditioner does two things at once: it labels each unit with its age, and
+it re-sorts the units by date instead of by search rank. `temporal:norank` runs
+the labelling with the sorting switched off, which separates the two.
 
 | Δ by question type | n | Gemma `temporal` | Gemma `norank` | Llama `temporal` | Llama `norank` |
 |---|---|---|---|---|---|
@@ -445,19 +542,21 @@ is the answer.** `single-session-user` is a single turn that BM25 puts first —
 re-ordering buries it. `knowledge-update` is a fact that was later revised —
 ordering by date is exactly what surfaces the revision.
 
-On Qwen2.5 that trade comes out favourable and the net is positive. On Gemma2
-and Llama3.2 the two effects cancel, which is why both models sit at a null
-overall no matter how the conditioner is configured.
-
 My original hypothesis — labelling good, sorting bad — was **wrong, and
 usefully so**. The sort is not a defect to be removed. It is the active
 ingredient, doing exactly what it was designed to do, while also doing damage
 elsewhere that nobody was measuring.
 
-**These per-type numbers deserve caution.** The slices are n=14 and n=16, so one
-question is worth ±0.07 and no individual cell is significant. What carries
-weight is that four independent sign flips all landed where the mechanism
-predicts — not the size of any one of them.
+**These per-type numbers deserved caution when they were written.** The slices
+are n=14 and n=16, so one question is worth ±0.07 and no individual cell is
+significant. The README's claim at the time was only that four independent sign
+flips landed where the mechanism predicts.
+
+That was the right amount of confidence. The [full-scale
+run](#why-the-effect-cancels) later reproduced the same pattern on n=70–126,
+which is the strongest thing in this repo: a mechanism proposed on thin slices,
+stated tentatively, and confirmed at five times the data. It just happens to
+predict a null rather than a win.
 
 ### The obvious next step, and why I did not build it
 
@@ -495,7 +594,32 @@ fitting noise.
 So it was not built. The script is committed so that the next person can see the
 negative result instead of re-deriving it on a GPU.
 
+**And the full-scale run priced the whole idea.** A router does not have to work
+off tense markers — suppose it could identify the question type perfectly. Apply
+the transform only to `knowledge-update` and `temporal-reasoning`, using
+LongMemEval's own labels, and route everything else to `identity`:
+
+| policy | accuracy on 446 | Δ vs identity | p |
+|---|---|---|---|
+| `identity` everywhere | 0.3834 | — | — |
+| `all` everywhere | 0.3901 | +0.0067 | 0.791 |
+| **oracle type-routed** | **0.4058** | **+0.0224** | 0.121 |
+
+That is an upper bound, not a system: it reads the answer key to decide how to
+format the prompt. Even so it lands at +2.2 points and does not reach
+significance. **Perfect routing is worth about two points here.** A real router
+would have to be free, accurate, and would still be chasing that ceiling — which
+is the argument for stopping rather than for building one more layer.
+
 ### Does conditioning a small model buy a bigger one?
+
+**Read this after [the replication failure](#the-headline-that-did-not-replicate).**
+Everything in this section is computed on the 91-question sample, where the 1.5B
+conditioned arm scores 0.4066. On the full benchmark that arm scores 0.3901
+against a 0.3834 baseline, so the interesting comparison is against a 7B that was
+never re-run at n=500. The section is kept because the *method* is the point —
+this is how a cross-model claim should be checked — but the numbers in it inherit
+the sampling problem above and should not be quoted on their own.
 
 Conditioned 1.5B scores 0.4066. The unconditioned 7B baseline scores 0.4176.
 The tempting sentence is "conditioning makes a 1.5B match a model 4.7× its
@@ -548,6 +672,13 @@ models. Generation is greedy (`temperature: 0.0`), and this confirms it holds in
 practice and not only in principle. Every paired comparison here therefore
 compares two runs that differ only in the thing under test.
 
+The n=500 run gives a second, weaker check across a *different* configuration:
+of the 100 questions it shares with the sampled run, 89 identity predictions and
+88 `all` predictions came back byte-identical, and accuracy on the shared 91
+moved by one question (0.2747 to 0.2857). Same prompts, same greedy decoding,
+different batch composition — so a small amount of serving-level nondeterminism
+survives, well below the effects being measured but not zero.
+
 ### The annotation nobody read
 
 `supersede:mark` — the feature this project was built around — did **nothing**:
@@ -576,10 +707,15 @@ was designed to deliver was delivered by `temporal` instead — **+0.250 at
 | single-session-user | +0.000 | −0.071 | +0.000 |
 
 `temporal` makes no claim about currency at all. It sorts by date and labels
-each unit with its age. That is apparently enough: **the model does not need to
-be told which fact is current, it needs the chronology made legible enough to
-work it out.** Being told directly, in a label that is right 96% of the time,
-changed nothing.
+each unit with its age. Being told directly, in a label that is right 96% of the
+time, changed nothing.
+
+The +0.250 in that table is a 91-question number and the section above explains
+why those are unreliable. At n=446 the knowledge-update gain is **+0.053**, real
+in direction and a fifth the size. What does survive the rescaling is the
+comparison *between* the two conditioners on the same questions: the explicit
+currency label contributed nothing at either scale, and whatever gain exists on
+this slice comes from the ordering.
 
 ### A correction found by reading individual flips
 
@@ -623,11 +759,12 @@ memcond/eval/          mechanical.py — the CPU gate's metrics
 scripts/               run_mechanical_gate.py  — the CPU gate
                        run_conditioned_eval.py — one GPU arm
                        compare_conditioners.py — paired stats against identity
+                       replication_check.py    — why n=100 disagreed with n=500
                        cross_model_check.py    — is a conditioned 1.5B a 7B?
                        test_sort_router.py     — the router negative result
 results/               every arm as JSON, per-question predictions included
 kaggle/                the notebook cells the GPU arms were run from
-tests/                 73 tests, no model and no network; the five that drive
+tests/                 79 tests, no model and no network; the five that drive
                        the eval script end to end skip without the benchmark
 .github/workflows/     CI: the suite, plus a check that the committed tables
                        still regenerate byte-identically
@@ -645,7 +782,7 @@ git clone https://github.com/i-shantt/llm-memory-conditioning.git
 cd llm-memory-conditioning
 
 pip install -r requirements.txt   # four small packages: no torch, no GPU
-python -m pytest tests/ -q        # 68 pass, 5 skip without the benchmark
+python -m pytest tests/ -q        # 74 pass, 5 skip without the benchmark
 ```
 
 **The analysis needs nothing beyond that.** Every table above except the
@@ -653,6 +790,7 @@ accuracy runs themselves comes back from the stored arms in seconds:
 
 ```bash
 python scripts/compare_conditioners.py   # the Results table and the per-type splits
+python scripts/replication_check.py      # the replication failure and the oracle ceiling
 python scripts/cross_model_check.py      # the 1.5B-vs-7B tables, both checks
 python scripts/test_sort_router.py       # the router negative result
 ```
@@ -681,19 +819,24 @@ they were produced from.
 - **Mechanical correctness does not imply usefulness, and the gate cannot tell
   the difference.** `supersede:mark` passed at 96.4% precision and moved
   accuracy by −0.011. Treat every gate number as necessary, never sufficient.
-- **The headline result is specific to one model family.** Within Qwen2.5 the
-  gradient is clean; on Gemma2 2B and Llama3.2 3B it disappears. Only Qwen 1.5B
-  clears significance outright — 3B is suggestive with the two tests disagreeing
-  at the margin, 7B is null, and both non-Qwen models are null-to-negative.
-  Nothing here supports a claim about small models in general.
-- **100 questions gives a confidence interval of roughly ±0.08 per arm**, so no
-  single model settles anything. The Qwen gradient, and the consistent
-  `knowledge-update` sign across all five models, are the load-bearing evidence;
-  individual arms are not.
-- **The sort / no-sort split is measured on two models and five question-type
-  slices of n=10–26.** Four sign flips landing where the mechanism predicts is
-  suggestive; none of the individual cells is significant, and the whole pattern
-  rests on roughly a dozen questions changing hands.
+- **Only one arm in this repo has been run on the whole benchmark, and it is a
+  null.** Qwen2.5-1.5B `all` against `identity`, n=446, +0.007, p = 0.791. Every
+  other number here comes from a 100-question sample, and the one time a sampled
+  result was re-run at full scale it fell from +0.132 to +0.007. Read the rest of
+  the tables as hypotheses that have not been tested at the size they would need
+  to be.
+- **100 questions gives a confidence interval of roughly ±0.08 per arm.** That is
+  wide enough to manufacture a 13-point effect out of nothing, which is exactly
+  what happened. This is the single most important caveat on the page.
+- **Neither half of the mechanism is significant on its own at full scale.** The
+  types the sort should help gain +0.050 (n=200, p = 0.121) and the types it
+  should hurt lose −0.029 (n=246, p = 0.210). The pattern matches the prediction
+  in both direction and relative size, but "matches a prediction" is not the same
+  as "is distinguishable from zero", and neither group is.
+- **The sort / no-sort split itself is measured on two models and five
+  question-type slices of n=10–26.** No individual cell is significant. Its
+  standing rests on the full-scale run reproducing its predicted directions, not
+  on the split's own numbers.
 - **The `temporal:norank` comparison was designed after seeing which question
   type broke.** That is post-hoc, and post-hoc hypotheses find patterns in
   noise. It was pre-registered only in the weak sense that the flag already
@@ -701,8 +844,9 @@ they were produced from.
 - **The cross-model comparison is the most fragile thing here**, and
   [it is checked two ways](#does-conditioning-a-small-model-buy-a-bigger-one)
   rather than asserted. It says conditioned 1.5B is *indistinguishable* from the
-  7B baseline, which is a weaker statement than beating it — and these arms were
-  not designed for a cross-model test in the first place.
+  7B baseline, which is a weaker statement than beating it — and it is computed
+  on the 91-question sample, so it inherits everything above. The 7B arms were
+  never re-run at n=500.
 - **Away from knowledge-update the supersession rule is noisy.** Across all 500
   questions HARM is 0.209–0.312 — it fires where there is no supersession to
   find. That is why `supersede:order`, which claims no currency at all, exists
