@@ -594,6 +594,72 @@
     }
   },
   {
+    "model": "ollama:qwen2.5:1.5b-instruct",
+    "conditioner": "all",
+    "n_examples": 500,
+    "baseline": "identity",
+    "baseline_accuracy": 0.3834080717488789,
+    "accuracy": 0.3901345291479821,
+    "delta": 0.006726457399103139,
+    "ci_lo": -0.026905829596412557,
+    "ci_hi": 0.04035874439461883,
+    "p_value": 0.7913664277791806,
+    "significant": false,
+    "significant_regression": false,
+    "contingency": {
+      "n": 446,
+      "both": 144,
+      "system_only": 30,
+      "control_only": 27,
+      "neither": 245
+    },
+    "read_tokens_per_query": 2992.826,
+    "token_delta_pct": 0.0709808507653682,
+    "n_hit_token_cap": 1,
+    "per_type": {
+      "single-session-user": {
+        "n": 70,
+        "system": 51,
+        "control": 54,
+        "system_acc": 0.7285714285714285,
+        "control_acc": 0.7714285714285715,
+        "lift": -0.04285714285714293
+      },
+      "multi-session": {
+        "n": 126,
+        "system": 19,
+        "control": 23,
+        "system_acc": 0.15079365079365079,
+        "control_acc": 0.18253968253968253,
+        "lift": -0.031746031746031744
+      },
+      "knowledge-update": {
+        "n": 76,
+        "system": 41,
+        "control": 37,
+        "system_acc": 0.5394736842105263,
+        "control_acc": 0.4868421052631579,
+        "lift": 0.05263157894736842
+      },
+      "temporal-reasoning": {
+        "n": 124,
+        "system": 34,
+        "control": 28,
+        "system_acc": 0.27419354838709675,
+        "control_acc": 0.22580645161290322,
+        "lift": 0.04838709677419353
+      },
+      "single-session-assistant": {
+        "n": 50,
+        "system": 29,
+        "control": 29,
+        "system_acc": 0.58,
+        "control_acc": 0.58,
+        "lift": 0.0
+      }
+    }
+  },
+  {
     "model": "ollama:qwen2.5:3b-instruct",
     "conditioner": "all",
     "n_examples": 100,
