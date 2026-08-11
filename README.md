@@ -495,6 +495,51 @@ fitting noise.
 So it was not built. The script is committed so that the next person can see the
 negative result instead of re-deriving it on a GPU.
 
+### Does conditioning a small model buy a bigger one?
+
+Conditioned 1.5B scores 0.4066. The unconditioned 7B baseline scores 0.4176.
+The tempting sentence is "conditioning makes a 1.5B match a model 4.7× its
+size", and memllm explicitly warns against writing it: the grader marks an
+answer correct when the gold span appears anywhere in it, so a more verbose
+model gets more chances, and 7B's median answer is 27 words against 1.5B's 16.
+
+`scripts/cross_model_check.py` tests it two ways, offline, from the stored
+predictions:
+
+**Paired, not eyeballed.** Every arm answers the same 91 question ids, so exact
+McNemar applies across models the same way it does within one.
+
+| comparison | accuracy | Δ | discordant | p |
+|---|---|---|---|---|
+| conditioned 1.5B vs **unconditioned 7B** | 0.4066 vs 0.4176 | −0.0110 | 9 / 10 | **1.000** |
+| conditioned 1.5B vs unconditioned 3B | 0.4066 vs 0.3077 | +0.0989 | 16 / 7 | 0.093 |
+
+Against 7B the discordant pairs are 9 against 10 — as close to a coin flip as
+91 questions can produce. The test cannot separate them.
+
+**Length-controlled.** Re-grading the same stored answers, each truncated to its
+first N words. An advantage that survives the cap is accuracy; one that
+evaporates was verbosity.
+
+| arm | median words | full | 40w | 25w | 15w | 8w |
+|---|---|---|---|---|---|---|
+| conditioned 1.5B | 16 | 0.407 | 0.407 | 0.363 | 0.330 | 0.209 |
+| unconditioned 3B | 18 | 0.308 | 0.297 | 0.275 | 0.275 | 0.187 |
+| unconditioned 7B | 27 | 0.418 | 0.407 | 0.374 | 0.352 | 0.231 |
+| **gap to 7B** | | −0.011 | +0.000 | −0.011 | −0.022 | −0.022 |
+| **gap to 3B** | | +0.099 | +0.110 | +0.088 | +0.055 | +0.022 |
+
+**Against 7B the gap never exceeds two questions at any cap.** It does not open
+up as truncation removes 7B's verbosity advantage, which is what would happen if
+the tie were an artefact of answer length. So the defensible claim is: *a
+conditioned 1.5B is not distinguishable from an unconditioned 7B on this
+benchmark* — not that it beats one.
+
+**Against 3B the lead is real but mostly length.** It holds its sign at every
+cap, so it is not purely an artefact, but it decays from +0.099 to +0.022 as
+answers are truncated. Roughly three quarters of that lead was verbosity. Quote
+the capped number, not the headline one.
+
 ### The arms reproduce exactly
 
 Re-running the two `identity` baselines in a fresh Kaggle session, on different
@@ -578,10 +623,11 @@ memcond/eval/          mechanical.py — the CPU gate's metrics
 scripts/               run_mechanical_gate.py  — the CPU gate
                        run_conditioned_eval.py — one GPU arm
                        compare_conditioners.py — paired stats against identity
+                       cross_model_check.py    — is a conditioned 1.5B a 7B?
                        test_sort_router.py     — the router negative result
 results/               every arm as JSON, per-question predictions included
 kaggle/                the notebook cells the GPU arms were run from
-tests/                 67 tests, no model and no network; the five that drive
+tests/                 71 tests, no model and no network; the five that drive
                        the eval script end to end skip without the benchmark
 .github/workflows/     CI: the suite, plus a check that the committed tables
                        still regenerate byte-identically
@@ -599,7 +645,7 @@ git clone https://github.com/i-shantt/llm-memory-conditioning.git
 cd llm-memory-conditioning
 
 pip install -r requirements.txt   # four small packages: no torch, no GPU
-python -m pytest tests/ -q        # 62 pass, 5 skip without the benchmark
+python -m pytest tests/ -q        # 66 pass, 5 skip without the benchmark
 ```
 
 **The analysis needs nothing beyond that.** Every table above except the
@@ -607,6 +653,7 @@ accuracy runs themselves comes back from the stored arms in seconds:
 
 ```bash
 python scripts/compare_conditioners.py   # the Results table and the per-type splits
+python scripts/cross_model_check.py      # the 1.5B-vs-7B tables, both checks
 python scripts/test_sort_router.py       # the router negative result
 ```
 
@@ -651,12 +698,11 @@ they were produced from.
   type broke.** That is post-hoc, and post-hoc hypotheses find patterns in
   noise. It was pre-registered only in the weak sense that the flag already
   existed in the code before the transfer run.
-- **Comparing a conditioned small model against a larger unconditioned one is
-  the most fragile thing here.** memllm explicitly warns against it, because the
-  containment grader rewards longer answers. On accuracy, conditioned 1.5B is
-  still one question short of the 7B baseline (0.4066 vs 0.4176); it leads only
-  on token-F1 (0.1821 vs 0.1759), and that gap is small in absolute terms. These
-  arms were not designed for a cross-model test.
+- **The cross-model comparison is the most fragile thing here**, and
+  [it is checked two ways](#does-conditioning-a-small-model-buy-a-bigger-one)
+  rather than asserted. It says conditioned 1.5B is *indistinguishable* from the
+  7B baseline, which is a weaker statement than beating it — and these arms were
+  not designed for a cross-model test in the first place.
 - **Away from knowledge-update the supersession rule is noisy.** Across all 500
   questions HARM is 0.209–0.312 — it fires where there is no supersession to
   find. That is why `supersede:order`, which claims no currency at all, exists
