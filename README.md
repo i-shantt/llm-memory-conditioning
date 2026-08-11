@@ -22,8 +22,9 @@ grader and statistics.
 ## Summary of findings
 
 **The problem is real.** On the benchmark used here, retrieval finds the right
-text and the model still answers wrong: on **41 of 91** test questions the
-answer was sitting in the prompt and the model got it wrong anyway.
+text and the model still answers wrong: on **30 of 91** test questions *every*
+piece of evidence the benchmark labels as necessary was in the prompt and the
+model got it wrong anyway.
 
 **The fix works on one model family, and the effect shrinks with size.**
 
@@ -48,7 +49,8 @@ comes out positive; on Gemma2 and Llama3.2 the two halves cancel.
 
 **The original idea did not work.** This project was built around explicitly
 tagging superseded facts `OUTDATED`. Those tags are correct 96.4% of the time
-and changed accuracy by **0.000**. The models ignored them.
+and moved accuracy by **−1.1 points** (p = 1.000) — one question in 91, in the
+wrong direction. The models ignored them.
 
 Everything below is the evidence, including the measurements that contradicted
 what I expected and the bugs found along the way. Jump to [Results](#results) ·
@@ -134,20 +136,38 @@ the same way memllm's were.
 
 Taking memllm's stored runs (Qwen2.5-7B, hybrid retrieval, k=10, 100 questions)
 and joining per-question retrieval hits against per-question correctness — that
-is, asking "when the evidence *was* retrieved, did the model get it right?":
+is, asking "when the evidence *was* retrieved, did the model get it right?"
 
-| question type | evidence was retrieved, answer was **wrong** | accuracy when evidence is present |
-|---|---|---|
-| knowledge-update | 8 / 16 | 0.500 |
-| temporal-reasoning | 13 / 21 | 0.381 |
-| multi-session | 15 / 22 | 0.318 |
-| single-session-assistant | 3 / 10 | 0.700 |
-| single-session-user | 2 / 12 | 0.833 |
+There are two ways to ask that, and only one of them is fair. LongMemEval labels
+every turn that is needed to answer a question, and some questions need several.
+`any_hit@10` is satisfied when the retriever finds **one** of them, so a question
+needing six evidence turns can score `any_hit = 1.0` while five sixths of the
+answer is still missing. Getting that question wrong is not the model's fault.
+`recall@10 = 1.0` is the honest condition: *every* labelled turn is in the
+prompt, so nothing the model needs is absent.
 
-On the `knowledge-update` slice, hybrid retrieval finds at least one evidence
-unit for **every single question** (`any_hit@10 = 1.000`), and a 7B model still
-gets 8 of those 16 wrong. **Search is not the binding constraint here.** What
-the model does with the text it was given is.
+| question type | wrong on `any_hit` | wrong on **full recall** | accuracy on full recall |
+|---|---|---|---|
+| knowledge-update | 8 / 16 | **6 / 13** | 0.538 |
+| temporal-reasoning | 13 / 21 | **10 / 16** | 0.375 |
+| multi-session | 15 / 22 | **9 / 16** | 0.438 |
+| single-session-assistant | 3 / 10 | **3 / 10** | 0.700 |
+| single-session-user | 2 / 12 | **2 / 12** | 0.833 |
+| **all** | **41 / 81** | **30 / 67** | **0.552** |
+
+The gap between the two columns is real and it is exactly the objection above:
+11 of the 41 apparent failures had only part of their evidence retrieved, and
+most of those are `multi-session`, the type that needs the most turns. Those are
+retrieval failures wearing a reasoning failure's clothes.
+
+**What survives the correction is still the point.** On 30 of 91 questions the
+prompt contained every turn the benchmark says is needed and the model answered
+wrong anyway — 45% of the questions it was fully equipped to answer. The two
+single-session types, which need one turn and therefore cannot be short of
+evidence, are unaffected by the correction at all.
+
+**Search is not the binding constraint on this slice.** What the model does with
+the text it was given is.
 
 A concrete case, from those stored predictions:
 
@@ -613,7 +633,7 @@ they were produced from.
 
 - **Mechanical correctness does not imply usefulness, and the gate cannot tell
   the difference.** `supersede:mark` passed at 96.4% precision and moved
-  accuracy by 0.000. Treat every gate number as necessary, never sufficient.
+  accuracy by −0.011. Treat every gate number as necessary, never sufficient.
 - **The headline result is specific to one model family.** Within Qwen2.5 the
   gradient is clean; on Gemma2 2B and Llama3.2 3B it disappears. Only Qwen 1.5B
   clears significance outright — 3B is suggestive with the two tests disagreeing
@@ -654,7 +674,9 @@ they were produced from.
 - **`is_evidence` is LongMemEval's own labelling** and inherits whatever errors
   it contains.
 - **Conditioning cannot fix a retrieval miss.** It only changes the presentation
-  of what was already retrieved, so its ceiling is the 41-of-91 slice above.
+  of what was already retrieved, so its ceiling is the 30-of-91 full-recall
+  slice above — and on the 11 partial-recall questions, no amount of
+  reformatting can supply a turn the retriever never returned.
 
 ## License
 
