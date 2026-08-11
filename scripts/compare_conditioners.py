@@ -30,9 +30,16 @@ TYPES = ["knowledge-update", "temporal-reasoning", "multi-session",
          "single-session-user", "single-session-assistant"]
 
 
-def load(results: Path) -> dict[str, list[tuple[dict, object]]]:
-    """Group arms by model, keeping the payload alongside the ArmResult."""
-    by_model: dict[str, list] = {}
+def load(results: Path) -> dict[tuple[str, int], list[tuple[dict, object]]]:
+    """Group arms into pairable sets, keeping the payload beside the ArmResult.
+
+    The key is (model, question-set size), not model alone. A paired test is
+    only meaningful over the same questions, so a 500-question arm and a
+    100-question arm on the same model are two different experiments and must
+    not become each other's baseline. Grouping on the model alone silently
+    paired them, picking whichever identity arm sorted first.
+    """
+    by_arm_set: dict[tuple[str, int], list] = {}
     for f in sorted(results.glob("cond_*.json")):
         p = json.loads(f.read_text())
         if "records" not in p:
@@ -42,9 +49,10 @@ def load(results: Path) -> dict[str, list[tuple[dict, object]]]:
             print(f"  skipping {f.name}: every prompt identical "
                   f"({pt.pop()} tok) -- context was clamped", file=sys.stderr)
             continue
-        by_model.setdefault(p["config"]["answer_backend"], []).append(
+        key = (p["config"]["answer_backend"], p["n_examples"])
+        by_arm_set.setdefault(key, []).append(
             (p, arm_from_payload(p, name=f.stem)))
-    return by_model
+    return by_arm_set
 
 
 def main() -> None:
@@ -55,22 +63,33 @@ def main() -> None:
     ap.add_argument("--out", default=str(REPO / "results/conditioner_comparison.json"))
     args = ap.parse_args()
 
-    by_model = load(Path(args.results))
-    if not by_model:
+    by_arm_set = load(Path(args.results))
+    if not by_arm_set:
         sys.exit(f"no cond_*.json arms under {args.results}/")
 
     reports = []
-    for model in sorted(by_model):
-        arms = by_model[model]
+    for model, n_examples in sorted(by_arm_set):
+        arms = by_arm_set[(model, n_examples)]
         base = next((pair for pair in arms
                      if pair[0]["config"]["conditioner"] == args.baseline), None)
         if base is None:
-            print(f"\n{model}: no '{args.baseline}' arm -- nothing to compare "
-                  f"against, skipping", file=sys.stderr)
+            print(f"\n{model} (n={n_examples}): no '{args.baseline}' arm -- "
+                  f"nothing to compare against, skipping", file=sys.stderr)
             continue
         base_payload, base_arm = base
 
-        print(f"\n{'=' * 78}\n{model}\n{'=' * 78}")
+        # Same size is necessary but not sufficient: two 500-question arms drawn
+        # with different seeds would pass the grouping check and still be
+        # unpairable. The ids are the actual contract.
+        base_ids = {r["question_id"] for r in base_payload["records"]}
+        for payload, _ in arms:
+            ids = {r["question_id"] for r in payload["records"]}
+            if ids != base_ids:
+                sys.exit(f"{payload['config']['conditioner']} and {args.baseline} "
+                         f"on {model} cover different questions "
+                         f"({len(ids ^ base_ids)} differ) -- not pairable")
+
+        print(f"\n{'=' * 78}\n{model}   n={n_examples}\n{'=' * 78}")
         print(f"  baseline ({args.baseline}): acc={base_arm.accuracy:.4f}  "
               f"read tok/query={base_payload['read_tokens_per_query']:.0f}  "
               f"hit-cap={base_payload['n_hit_token_cap']}")
@@ -96,6 +115,7 @@ def main() -> None:
                   f"{dtok:+6.1%} {payload['n_hit_token_cap']:4d}")
             reports.append({
                 "model": model, "conditioner": name,
+                "n_examples": n_examples,
                 "baseline": args.baseline,
                 "baseline_accuracy": base_arm.accuracy,
                 "accuracy": arm.accuracy, "delta": rep.lift,

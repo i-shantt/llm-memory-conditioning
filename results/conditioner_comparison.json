@@ -2,6 +2,7 @@
   {
     "model": "ollama:gemma2:2b",
     "conditioner": "temporal",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.32967032967032966,
     "accuracy": 0.34065934065934067,
@@ -67,6 +68,7 @@
   {
     "model": "ollama:gemma2:2b",
     "conditioner": "all",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.32967032967032966,
     "accuracy": 0.31868131868131866,
@@ -132,6 +134,7 @@
   {
     "model": "ollama:gemma2:2b",
     "conditioner": "temporal:norank",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.32967032967032966,
     "accuracy": 0.31868131868131866,
@@ -197,6 +200,7 @@
   {
     "model": "ollama:llama3.2:3b",
     "conditioner": "temporal:norank",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.42857142857142855,
     "accuracy": 0.43956043956043955,
@@ -262,6 +266,7 @@
   {
     "model": "ollama:llama3.2:3b",
     "conditioner": "all",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.42857142857142855,
     "accuracy": 0.37362637362637363,
@@ -327,6 +332,7 @@
   {
     "model": "ollama:llama3.2:3b",
     "conditioner": "temporal",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.42857142857142855,
     "accuracy": 0.3626373626373626,
@@ -392,6 +398,7 @@
   {
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "all",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.4065934065934066,
@@ -457,6 +464,7 @@
   {
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "temporal",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.38461538461538464,
@@ -522,6 +530,7 @@
   {
     "model": "ollama:qwen2.5:1.5b-instruct",
     "conditioner": "supersede:mark",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.27472527472527475,
     "accuracy": 0.26373626373626374,
@@ -587,6 +596,7 @@
   {
     "model": "ollama:qwen2.5:3b-instruct",
     "conditioner": "all",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.3076923076923077,
     "accuracy": 0.3956043956043956,
@@ -652,6 +662,7 @@
   {
     "model": "ollama:qwen2.5:3b-instruct",
     "conditioner": "temporal",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.3076923076923077,
     "accuracy": 0.3626373626373626,
@@ -717,6 +728,7 @@
   {
     "model": "ollama:qwen2.5:3b-instruct",
     "conditioner": "supersede:mark",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.3076923076923077,
     "accuracy": 0.2857142857142857,
@@ -782,6 +794,7 @@
   {
     "model": "ollama:qwen2.5:7b-instruct",
     "conditioner": "all",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
     "accuracy": 0.46153846153846156,
@@ -847,6 +860,7 @@
   {
     "model": "ollama:qwen2.5:7b-instruct",
     "conditioner": "temporal",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
     "accuracy": 0.42857142857142855,
@@ -912,6 +926,7 @@
   {
     "model": "ollama:qwen2.5:7b-instruct",
     "conditioner": "supersede:drop",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
     "accuracy": 0.4065934065934066,
@@ -977,6 +992,7 @@
   {
     "model": "ollama:qwen2.5:7b-instruct",
     "conditioner": "supersede:mark",
+    "n_examples": 100,
     "baseline": "identity",
     "baseline_accuracy": 0.4175824175824176,
     "accuracy": 0.4065934065934066,

@@ -627,7 +627,7 @@ scripts/               run_mechanical_gate.py  — the CPU gate
                        test_sort_router.py     — the router negative result
 results/               every arm as JSON, per-question predictions included
 kaggle/                the notebook cells the GPU arms were run from
-tests/                 71 tests, no model and no network; the five that drive
+tests/                 73 tests, no model and no network; the five that drive
                        the eval script end to end skip without the benchmark
 .github/workflows/     CI: the suite, plus a check that the committed tables
                        still regenerate byte-identically
@@ -645,7 +645,7 @@ git clone https://github.com/i-shantt/llm-memory-conditioning.git
 cd llm-memory-conditioning
 
 pip install -r requirements.txt   # four small packages: no torch, no GPU
-python -m pytest tests/ -q        # 66 pass, 5 skip without the benchmark
+python -m pytest tests/ -q        # 68 pass, 5 skip without the benchmark
 ```
 
 **The analysis needs nothing beyond that.** Every table above except the

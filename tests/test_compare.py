@@ -191,7 +191,7 @@ def test_no_arms_at_all_exits_with_a_message_not_a_traceback():
     assert "Traceback" not in r.stderr
 
 
-def test_load_groups_arms_by_model():
+def test_load_groups_arms_by_model_and_question_set_size():
     ok = [True] * 6 + [False] * 4
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
@@ -199,5 +199,52 @@ def test_load_groups_arms_by_model():
         write(tmp, "b", payload("temporal", ok, model="m1"))
         write(tmp, "c", payload("identity", ok, model="m2"))
         grouped = cc.load(tmp)
-    assert sorted(grouped) == ["m1", "m2"]
-    assert len(grouped["m1"]) == 2 and len(grouped["m2"]) == 1
+    assert sorted(grouped) == [("m1", 10), ("m2", 10)]
+    assert len(grouped[("m1", 10)]) == 2 and len(grouped[("m2", 10)]) == 1
+
+
+def test_a_bigger_rerun_does_not_become_the_small_runs_baseline():
+    """Re-running a model on more questions is a second experiment, not a second
+    arm of the first. Grouping on the model alone paired them, and the identity
+    arm that sorted first silently became everyone's control -- so a 100-question
+    baseline would have been the reference for a 500-question treatment."""
+    small = [True] * 5 + [False] * 5           # 10 questions, accuracy 0.5
+    big = [True] * 6 + [False] * 24            # 30 questions, accuracy 0.2
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        write(tmp, "a_identity_n10", payload("identity", small))
+        write(tmp, "b_temporal_n10", payload("temporal", small))
+        write(tmp, "c_identity_n30", payload("identity", big))
+        write(tmp, "d_temporal_n30", payload("temporal", big))
+        _, reports = run(tmp)
+
+    assert len(reports) == 2, "each question-set size gets its own comparison"
+    by_n = {r["n_examples"]: r for r in reports}
+    assert sorted(by_n) == [10, 30]
+    # Both treatments are identical to their own baseline, so both deltas are 0.
+    # Cross-pairing would have produced +0.3 or -0.3 out of nothing.
+    assert by_n[10]["delta"] == 0.0 and by_n[30]["delta"] == 0.0
+    assert by_n[10]["baseline_accuracy"] == 0.5
+    assert by_n[30]["baseline_accuracy"] == 0.2
+
+
+def test_same_size_but_different_questions_is_refused_rather_than_paired():
+    """Equal n is necessary, not sufficient: two arms drawn with different seeds
+    would group together and still be unpairable."""
+    ok = [True] * 5 + [False] * 5
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        base = payload("identity", ok)
+        other = payload("temporal", ok)
+        for i, r in enumerate(other["records"]):
+            r["question_id"] = f"different{i}"
+        write(tmp, "a", base)
+        write(tmp, "b", other)
+        r = subprocess.run(
+            [PY, str(REPO / "scripts/compare_conditioners.py"),
+             "--results", str(tmp), "--out", str(tmp / "x.json")],
+            capture_output=True, text=True)
+
+    assert r.returncode != 0
+    assert "not pairable" in r.stderr
+    assert "Traceback" not in r.stderr
